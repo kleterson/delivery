@@ -14,7 +14,7 @@
         .painel-saldo p { margin: 5px 0 0 0; color: #4CAF50; font-size: 1.8rem; font-weight: bold; }
 
         .card { background: #2d2d2d; border: 1px solid #444; padding: 15px; margin-bottom: 12px; border-radius: 8px; }
-        .card-alerta { border: 2px solid #ff5252; background: #2c1a1a; animation: piscar 1s infinite alternate; }
+        .card-alerta { border: 2px solid #ff5252; background: #2c1a1a; animation: piscar 0.8s infinite alternate; }
         @keyframes piscar { from { border-color: #ff5252; } to { border-color: #ff9800; } }
         
         input, button { padding: 12px; margin: 6px 0; width: 100%; box-sizing: border-box; border-radius: 6px; border: none; font-size: 1rem; }
@@ -41,6 +41,11 @@
         <p id="saldo-total">R$ 0,00</p>
     </div>
 
+    <!-- BOTÃO DE ATIVAÇÃO DE ÁUDIO CASO O NAVEGADOR BLOQUEIE -->
+    <div id="aviso-audio" style="background: #2a2a1a; border: 1px solid #ff9800; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-size: 0.85rem; color: #ffcc00; cursor: pointer;" onclick="ativarAudioContexto()">
+        🔊 Toque aqui para ativar o alarme sonoro no celular/PC
+    </div>
+
     <div id="motoboy-painel">Procurando entregas...</div>
 
     <button class="btn-historico" onclick="abrirHistorico()">Ver Entregas Realizadas</button>
@@ -59,28 +64,67 @@
     let audioInterval = null;
     let audioCtx = null;
 
-    function tocarBeep() {
+    function ativarAudioContexto() {
         try {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
-            let osc = audioCtx.createOscillator();
-            let gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.value = 880; 
-            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.3);
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            document.getElementById('aviso-audio').style.display = 'none';
+            tocarAlarmeAgitado();
         } catch (e) {
-            console.log("Áudio bloqueado.");
+            console.log("Erro ao iniciar áudio:", e);
+        }
+    }
+
+    // Som de alerta agitado (estilo sirene / campainha dupla rápida)
+    function tocarAlarmeAgitado() {
+        try {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const agora = audioCtx.currentTime;
+
+            // Nota 1 (Mais alta e rápida)
+            let osc1 = audioCtx.createOscillator();
+            let gain1 = audioCtx.createGain();
+            osc1.type = 'triangle';
+            osc1.frequency.setValueAtTime(950, agora);
+            gain1.gain.setValueAtTime(0.3, agora);
+            gain1.gain.exponentialRampToValueAtTime(0.01, agora + 0.15);
+            osc1.connect(gain1);
+            gain1.connect(audioCtx.destination);
+            osc1.start(agora);
+            osc1.stop(agora + 0.15);
+
+            // Nota 2 (Mais aguda logo em seguida)
+            let osc2 = audioCtx.createOscillator();
+            let gain2 = audioCtx.createGain();
+            osc2.type = 'square';
+            osc2.frequency.setValueAtTime(1400, agora + 0.18);
+            gain2.gain.setValueAtTime(0.3, agora + 0.18);
+            gain2.gain.exponentialRampToValueAtTime(0.01, agora + 0.35);
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.start(agora + 0.18);
+            osc2.stop(agora + 0.35);
+
+        } catch (e) {
+            console.log("Áudio bloqueado pelo navegador.", e);
+            document.getElementById('aviso-audio').style.display = 'block';
         }
     }
 
     function iniciarAlarmeSonoro() {
         if (!audioInterval) {
-            audioInterval = setInterval(tocarBeep, 2000);
+            tocarAlarmeAgitado(); // Toca na hora
+            audioInterval = setInterval(tocarAlarmeAgitado, 1200); // Repete a cada 1.2 segundos
         }
     }
 
@@ -92,7 +136,6 @@
     }
 
     async function atualizarPainelMotoboy() {
-        // Salva qual input está focado e o valor digitado atualmente antes de atualizar a tela
         const activeInput = document.activeElement;
         const activeInputId = activeInput && activeInput.tagName === 'INPUT' ? activeInput.id : null;
         const activeInputValue = activeInput && activeInput.tagName === 'INPUT' ? activeInput.value : '';
@@ -161,7 +204,6 @@
 
         document.getElementById('motoboy-painel').innerHTML = htmlMotoboy;
 
-        // Restaura o foco e o valor exato que o motoboy estava digitando
         if (activeInputId) {
             const restoredInput = document.getElementById(activeInputId);
             if (restoredInput) {
