@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Restaurante & Pedidos</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 15px; }
+        .container { max-width: 480px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        h1, h2 { color: #ff5252; text-align: center; font-size: 1.4rem; }
+        .section { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #333; }
+        .card { background: #2d2d2d; border: 1px solid #444; padding: 15px; margin-bottom: 12px; border-radius: 8px; }
+        input, button { padding: 12px; margin: 6px 0; width: 100%; box-sizing: border-box; border-radius: 6px; border: none; font-size: 1rem; }
+        input { background: #333; color: white; border: 1px solid #555; }
+        button { background-color: #4CAF50; color: white; cursor: pointer; font-weight: bold; }
+        button:hover { opacity: 0.9; }
+        .btn-restaurante { background-color: #ff9800; color: #000; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🍔 Painel do Restaurante</h1>
+    
+    <!-- 1. CRIAR PEDIDO -->
+    <div class="section">
+        <h2>Criar Novo Pedido</h2>
+        <input type="text" id="cliente-nome" placeholder="Nome do Cliente">
+        <input type="text" id="cliente-endereco" placeholder="Endereço de Entrega">
+        <input type="number" id="cliente-distancia" placeholder="Distância em KM (Ex: 3)">
+        <button onclick="fazerPedido()">Fazer Pedido</button>
+        <div id="resposta-cliente" style="margin-top: 10px; font-size: 0.9rem;"></div>
+    </div>
+
+    <!-- 2. COLETAS NO BALCÃO -->
+    <div class="section">
+        <h2>Pedidos no Balcão</h2>
+        <button class="btn-restaurante" onclick="carregarRestaurante()">Atualizar Coletas</button>
+        <div id="restaurante-painel" style="margin-top: 10px;">Nenhum pedido no balcão.</div>
+    </div>
+</div>
+
+<script>
+    const API_URL = window.location.origin;
+
+    async function fazerPedido() {
+        const cliente = document.getElementById('cliente-nome').value;
+        const enderecoEntrega = document.getElementById('cliente-endereco').value;
+        const distanciaKm = parseFloat(document.getElementById('cliente-distancia').value);
+
+        if (!cliente || !enderecoEntrega || isNaN(distanciaKm)) {
+            alert("Preencha todos os campos!");
+            return;
+        }
+
+        const res = await fetch(`${API_URL}/pedidos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cliente, enderecoEntrega, distanciaKm })
+        });
+
+        const json = await res.json();
+        if (res.ok) {
+            document.getElementById('resposta-cliente').innerHTML = 
+                `<span style="color:#4CAF50;">Pedido criado com sucesso!</span><br>` +
+                `<span style="color:#ffcc00;">🔑 Código de Entrega do Cliente: <strong>${json.pedido.codigoEntrega}</strong></span>`;
+            
+            document.getElementById('cliente-nome').value = '';
+            document.getElementById('cliente-endereco').value = '';
+            document.getElementById('cliente-distancia').value = '';
+            carregarRestaurante();
+        }
+    }
+
+    async function carregarRestaurante() {
+        const res = await fetch(`${API_URL}/restaurante/pedidos`);
+        const pedidos = await res.json();
+        let html = '';
+        if (pedidos.length === 0) {
+            document.getElementById('restaurante-painel').innerHTML = "<p style='color:#777; text-align:center;'>Nenhum pedido aguardando coleta.</p>";
+            return;
+        }
+        pedidos.forEach(p => {
+            html += `
+                <div class="card">
+                    <p><strong>Pedido #${p.id}</strong> - ${p.cliente}</p>
+                    <p>Status: <strong>${p.status}</strong></p>
+                    ${p.status === 'Aguardando Coleta' ? `<p style="color:#ffeb3b">🔑 Código de Coleta: <strong>${p.codigoColetaParaValidar}</strong></p>` : ''}
+                </div>
+            `;
+        });
+        document.getElementById('restaurante-painel').innerHTML = html;
+    }
+
+    setInterval(carregarRestaurante, 3000);
+    carregarRestaurante();
+</script>
+
+</body>
+</html>

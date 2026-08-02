@@ -1,0 +1,12 @@
+{
+  "name": "sistema-restaurante",
+  "version": "1.0.0",
+  "description": "Sistema de Restaurante e Motoboy",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
