@@ -1,9 +1,12 @@
 const express = require('express');
+const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.static('public'));
+
+// Se os arquivos estiverem na raiz do projeto (junto com o server.js):
+app.use(express.static(__dirname));
 
 let pedidos = [];
 const enderecoRestaurante = "Av. Principal, 100 - Centro";
@@ -14,6 +17,19 @@ function calcularFrete(distanciaKm) {
     const taxaMinima = 7.50;
     return Math.max(valorCalculado, taxaMinima);
 }
+
+// Rota raiz redirecionando ou mostrando opções
+app.get('/', (req, res) => {
+    res.send(`
+        <div style="font-family: Arial; text-align: center; margin-top: 50px; background: #121212; color: #fff; padding: 40px; border-radius: 10px; max-width: 400px; margin-left: auto; margin-right: auto;">
+            <h1>🍔 Sistema de Entregas</h1>
+            <p>Escolha qual painel deseja acessar:</p>
+            <br>
+            <a href="/admin.html" style="display: block; background: #ff5252; color: white; padding: 15px; text-decoration: none; border-radius: 6px; margin-bottom: 10px; font-weight: bold;">Painel do Restaurante (Admin)</a>
+            <a href="/index.html" style="display: block; background: #4CAF50; color: white; padding: 15px; text-decoration: none; border-radius: 6px; font-weight: bold;">App do Motoboy</a>
+        </div>
+    `);
+});
 
 // 1. Restaurante visualiza os pedidos
 app.get('/restaurante/pedidos', (req, res) => {
@@ -41,7 +57,7 @@ app.post('/pedidos', (req, res) => {
         cliente,
         retirada: { local: "Restaurante Sabor & Arte", endereco: enderecoRestaurante },
         entrega: { enderecoCliente: enderecoEntrega, distanciaKm: distanciaKm },
-        financeiro: { taxaEntrega: taxaEntrega.toFixed(2) },
+        financeiro: { taxaEntrega: parseFloat(taxaEntrega.toFixed(2)) },
         status: "Disponível",
         motoboyAceito: null,
         codigoColeta: gerarCodigo(),   
