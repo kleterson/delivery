@@ -87,6 +87,8 @@ app.post('/admin/motoboys/:id/status', (req, res) => {
         motoboy.online = false;
         motoboy.rotaAtiva = false;
         motoboy.tempoBloqueioAte = Date.now() + 300000; // 5 minutos de bloqueio temporário
+    } else {
+        motoboy.tempoBloqueioAte = 0; // Zera o tempo se o admin desbloquear manualmente
     }
     res.json({ mensagem: "Status alterado com sucesso!", motoboy });
 });
@@ -138,7 +140,8 @@ app.get('/restaurante/pedidos', (req, res) => {
         cliente: p.cliente,
         enderecoEntrega: p.entrega.enderecoCliente,
         status: p.status,
-        motoboyNome: p.motoboyId ? p.motoboyNome : (p.motoboyNomeCancelou || p.motoboyNome),
+        // Garante que o nome do motoboy que cancelou vá corretamente para o frontend
+        motoboyNome: p.status === 'Cancelado pelo Motoboy' ? p.motoboyNomeCancelou : p.motoboyNome,
         codigoColetaParaValidar: p.codigoColeta,
         codigoEntregaParaValidar: p.codigoEntrega
     }));
@@ -223,6 +226,7 @@ app.post('/pedidos/:id/recusar', (req, res) => {
 
     pedido.status = "Cancelado pelo Motoboy";
     pedido.motoboyId = null;
+    pedido.motoboyNome = null; // Limpa para ficar disponível para outro
     pedido.motoboyNomeCancelou = nomeMotoboyCancelou || "Desconhecido"; 
     
     res.json({ mensagem: "Entrega recusada e motoboy bloqueado temporariamente.", pedido });

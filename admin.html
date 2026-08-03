@@ -64,18 +64,35 @@
 <script>
     const API_URL = window.location.origin;
 
+    function formatarTempo(segundos) {
+        const min = Math.floor(segundos / 60);
+        const seg = segundos % 60;
+        return `${min.toString().padStart(2, '0')}:${seg.toString().padStart(2, '0')}`;
+    }
+
     async function carregarMotoboys() {
         try {
             const res = await fetch(`${API_URL}/admin/motoboys`);
             const motoboys = await res.json();
             let html = '';
 
+            const agora = Date.now();
+
             if (motoboys.length === 0) {
                 html = '<tr><td colspan="5" style="text-align:center; color:#777;">Nenhum motoboy cadastrado.</td></tr>';
             } else {
                 motoboys.forEach(m => {
                     const statusConexao = m.online ? '<span style="color:#4CAF50; font-weight:bold;">🟢 Online</span>' : '<span style="color:#777;">🔴 Offline</span>';
-                    const statusConta = m.ativo ? '<span style="color:#4CAF50;">Ativo</span>' : '<span style="color:#f44336; font-weight:bold;">Temporariamente Bloqueado</span>';
+                    
+                    let statusConta = '<span style="color:#4CAF50;">Ativo</span>';
+                    if (!m.ativo || agora < m.tempoBloqueioAte) {
+                        const segundosRestantes = Math.ceil((m.tempoBloqueioAte - agora) / 1000);
+                        if (segundosRestantes > 0) {
+                            statusConta = `<span style="color:#f44336; font-weight:bold;">Bloqueado (${formatarTempo(segundosRestantes)})</span>`;
+                        } else {
+                            statusConta = '<span style="color:#f44336; font-weight:bold;">Temporariamente Bloqueado</span>';
+                        }
+                    }
                     
                     html += `
                         <tr>
@@ -84,7 +101,7 @@
                             <td>${statusConexao}</td>
                             <td>${statusConta}</td>
                             <td>
-                                ${m.ativo ? 
+                                ${m.ativo && agora >= (m.tempoBloqueioAte || 0) ? 
                                     `<button class="btn-bloquear" onclick="alterarStatusMotoboy(${m.id}, false)">Bloquear (5 min)</button>` : 
                                     `<button class="btn-desbloquear" onclick="alterarStatusMotoboy(${m.id}, true)">Desbloquear</button>`
                                 }
@@ -138,12 +155,11 @@
         }
     }
 
-    // Função para definir a cor do status na tela
     function corStatus(status) {
-        if (status === 'Entregue') return '#4CAF50'; // Verde
-        if (status === 'Em Trânsito') return '#FFEB3B'; // Amarelo
-        if (status && status.includes('Cancelado')) return '#F44336'; // Vermelho
-        return '#ff9800'; // Laranja padrão para etapas intermediárias
+        if (status === 'Entregue') return '#4CAF50'; 
+        if (status === 'Em Trânsito') return '#FFEB3B'; 
+        if (status && status.includes('Cancelado')) return '#F44336'; 
+        return '#ff9800'; 
     }
 
     async function carregarPedidos() {
@@ -196,7 +212,7 @@
         setInterval(() => {
             carregarMotoboys();
             carregarPedidos();
-        }, 4000);
+        }, 1000); // Atualiza a cada 1 segundo para o cronômetro rodar fluido na tela
         carregarMotoboys();
         carregarPedidos();
     }
