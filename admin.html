@@ -215,7 +215,8 @@
                         <div class="pedido-item">
                             <p><strong>Pedido #${p.id}</strong> - ${p.cliente}</p>
                             <p>Status: <span class="status-badge">${p.status}</span></p>
-                            <p>🔑 Código de Coleta: <span class="codigo-destaque">${p.codigoColetaParaValidar}</span></p>
+                            <p>🔑 Código de Coleta: <span class="codigo-destaque">${p.codigoColetaParaValidar || '---'}</span></p>
+                            <p>🔒 Código do Cliente: <span class="codigo-destaque" style="color: #4CAF50;">${p.codigoEntregaParaValidar || '---'}</span></p>
                         </div>
                     `;
                 });
