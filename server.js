@@ -50,7 +50,6 @@ app.post('/motoboys/cadastrar', (req, res) => {
         senha, 
         ativo: true, 
         online: false,
-        rotaAtiva: false,
         tempoBloqueioAte: 0
     };
     motoboysCadastrados.push(novoMotoboy);
@@ -85,7 +84,6 @@ app.post('/admin/motoboys/:id/status', (req, res) => {
     motoboy.ativo = ativo;
     if (!ativo) {
         motoboy.online = false;
-        motoboy.rotaAtiva = false;
         motoboy.tempoBloqueioAte = Date.now() + 300000; 
     } else {
         motoboy.tempoBloqueioAte = 0; 
@@ -163,7 +161,7 @@ app.post('/pedidos/:id/aceitar', (req, res) => {
     if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
     if (pedido.status !== "Disponível") return res.status(400).json({ erro: "Este pedido já foi aceito por outro motoboy." });
 
-    pedido.status = "Disponível"; 
+    pedido.status = "Aceito"; 
     pedido.motoboyId = motoboyId;
     pedido.motoboyNome = motoboyNome;
     res.json({ mensagem: "Entrega aceita com sucesso!", pedido });
