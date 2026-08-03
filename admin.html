@@ -3,53 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel do Restaurante & Pedidos</title>
+    <title>Painel do Restaurante</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 15px; }
-        .container { max-width: 480px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        h1, h2 { color: #ff5252; text-align: center; font-size: 1.4rem; }
-        .section { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #333; }
-        .card { background: #2d2d2d; border: 1px solid #444; padding: 15px; margin-bottom: 12px; border-radius: 8px; }
-        input, button { padding: 12px; margin: 6px 0; width: 100%; box-sizing: border-box; border-radius: 6px; border: none; font-size: 1rem; }
-        input { background: #333; color: white; border: 1px solid #555; }
-        button { background-color: #4CAF50; color: white; cursor: pointer; font-weight: bold; }
-        button:hover { opacity: 0.9; }
-        .btn-restaurante { background-color: #ff9800; color: #000; }
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --border-color: #333;
+            --accent-red: #ff5252;
+            --accent-green: #4CAF50;
+            --text-color: #e0e0e0;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            margin: 0; 
+            padding: 20px; 
+        }
+
+        .main-container { 
+            max-width: 1100px; 
+            margin: auto; 
+        }
+
+        h1 { 
+            color: var(--accent-red); 
+            text-align: center; 
+            font-size: 1.8rem; 
+            margin-bottom: 25px; 
+        }
+
+        /* ESTRUTURA DIVIDIDA EM DUAS COLUNAS */
+        .painel-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        @media (max-width: 768px) {
+            .painel-grid {
+                grid-template-columns: 1fr; /* No celular fica um abaixo do outro */
+            }
+        }
+
+        .card-secao {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        h2 { 
+            color: var(--accent-red); 
+            font-size: 1.2rem; 
+            margin-top: 0; 
+            margin-bottom: 20px; 
+            text-align: center;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        
+        input, button { 
+            padding: 12px; 
+            margin: 8px 0; 
+            width: 100%; 
+            box-sizing: border-box; 
+            border-radius: 6px; 
+            border: none; 
+            font-size: 1rem; 
+        }
+        
+        input { 
+            background: #2a2a2a; 
+            color: white; 
+            border: 1px solid #444; 
+        }
+
+        input:focus {
+            border-color: var(--accent-green);
+            outline: none;
+        }
+
+        button { 
+            background-color: var(--accent-green); 
+            color: white; 
+            cursor: pointer; 
+            font-weight: bold; 
+            transition: opacity 0.2s;
+        }
+
+        button:hover { 
+            opacity: 0.9; 
+        }
+
+        .btn-atualizar {
+            background-color: #ff9800;
+            margin-bottom: 15px;
+        }
+
+        /* ESTILO DOS PEDIDOS NO BALCÃO */
+        .lista-pedidos {
+            max-height: 450px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .pedido-item {
+            background: #252525;
+            border: 1px solid #444;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 5px solid var(--accent-green);
+        }
+
+        .pedido-item p {
+            margin: 4px 0;
+            font-size: 0.95rem;
+        }
+
+        .codigo-destaque {
+            color: #ffcc00;
+            font-weight: bold;
+            font-size: 1.05rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            background: #333;
+            color: #fff;
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
+<div class="main-container">
     <h1>🍔 Painel do Restaurante</h1>
     
-    <!-- 1. CRIAR PEDIDO -->
-    <div class="section">
-        <h2>Criar Novo Pedido</h2>
-        <input type="text" id="cliente-nome" placeholder="Nome do Cliente">
-        <input type="text" id="cliente-endereco" placeholder="Endereço de Entrega">
-        <input type="number" id="cliente-distancia" placeholder="Distância em KM (Ex: 3)">
-        <button onclick="fazerPedido()">Fazer Pedido</button>
-        <div id="resposta-cliente" style="margin-top: 10px; font-size: 0.9rem;"></div>
-    </div>
+    <div class="painel-grid">
+        
+        <!-- COLUNA DA ESQUERDA: CRIAR PEDIDO -->
+        <div class="card-secao">
+            <h2>Criar Novo Pedido</h2>
+            <input type="text" id="cliente" placeholder="Nome do Cliente">
+            <input type="text" id="endereco" placeholder="Endereço de Entrega">
+            <input type="number" id="distancia" placeholder="Distância em KM (Ex: 3)">
+            <button onclick="criarPedido()">Fazer Pedido</button>
+        </div>
 
-    <!-- 2. COLETAS NO BALCÃO -->
-    <div class="section">
-        <h2>Pedidos no Balcão</h2>
-        <button class="btn-restaurante" onclick="carregarRestaurante()">Atualizar Coletas</button>
-        <div id="restaurante-painel" style="margin-top: 10px;">Nenhum pedido no balcão.</div>
+        <!-- COLUNA DA DIREITA: PEDIDOS NO BALCÃO -->
+        <div class="card-secao">
+            <h2>Pedidos no Balcão</h2>
+            <button class="btn-atualizar" onclick="carregarPedidos()">Atualizar Coletas</button>
+            <div id="lista-pedidos" class="lista-pedidos">
+                <p style="text-align: center; color: #777;">Carregando pedidos...</p>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script>
     const API_URL = window.location.origin;
 
-    async function fazerPedido() {
-        const cliente = document.getElementById('cliente-nome').value;
-        const enderecoEntrega = document.getElementById('cliente-endereco').value;
-        const distanciaKm = parseFloat(document.getElementById('cliente-distancia').value);
+    async function criarPedido() {
+        const cliente = document.getElementById('cliente').value;
+        const enderecoEntrega = document.getElementById('endereco').value;
+        const distanciaKm = document.getElementById('distancia').value;
 
-        if (!cliente || !enderecoEntrega || isNaN(distanciaKm)) {
-            alert("Preencha todos os campos!");
+        if (!cliente || !enderecoEntrega || !distanciaKm) {
+            alert("Por favor, preencha todos os campos!");
             return;
         }
 
@@ -61,39 +191,45 @@
 
         const json = await res.json();
         if (res.ok) {
-            document.getElementById('resposta-cliente').innerHTML = 
-                `<span style="color:#4CAF50;">Pedido criado com sucesso!</span><br>` +
-                `<span style="color:#ffcc00;">🔑 Código de Entrega do Cliente: <strong>${json.pedido.codigoEntrega}</strong></span>`;
-            
-            document.getElementById('cliente-nome').value = '';
-            document.getElementById('cliente-endereco').value = '';
-            document.getElementById('cliente-distancia').value = '';
-            carregarRestaurante();
+            alert("Pedido criado e enviado para os motoboys com sucesso!");
+            document.getElementById('cliente').value = '';
+            document.getElementById('endereco').value = '';
+            document.getElementById('distancia').value = '';
+            carregarPedidos();
+        } else {
+            alert(json.erro);
         }
     }
 
-    async function carregarRestaurante() {
-        const res = await fetch(`${API_URL}/restaurante/pedidos`);
-        const pedidos = await res.json();
-        let html = '';
-        if (pedidos.length === 0) {
-            document.getElementById('restaurante-painel').innerHTML = "<p style='color:#777; text-align:center;'>Nenhum pedido aguardando coleta.</p>";
-            return;
+    async function carregarPedidos() {
+        try {
+            const res = await fetch(`${API_URL}/restaurante/pedidos`);
+            const pedidos = await res.json();
+
+            let html = '';
+            if (pedidos.length === 0) {
+                html = '<p style="color:#777; text-align:center;">Nenhum pedido no momento.</p>';
+            } else {
+                pedidos.slice().reverse().forEach(p => {
+                    html += `
+                        <div class="pedido-item">
+                            <p><strong>Pedido #${p.id}</strong> - ${p.cliente}</p>
+                            <p>Status: <span class="status-badge">${p.status}</span></p>
+                            <p>🔑 Código de Coleta: <span class="codigo-destaque">${p.codigoColetaParaValidar}</span></p>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('lista-pedidos').innerHTML = html;
+        } catch (e) {
+            console.log("Erro ao carregar pedidos", e);
         }
-        pedidos.forEach(p => {
-            html += `
-                <div class="card">
-                    <p><strong>Pedido #${p.id}</strong> - ${p.cliente}</p>
-                    <p>Status: <strong>${p.status}</strong></p>
-                    ${p.status === 'Aguardando Coleta' ? `<p style="color:#ffeb3b">🔑 Código de Coleta: <strong>${p.codigoColetaParaValidar}</strong></p>` : ''}
-                </div>
-            `;
-        });
-        document.getElementById('restaurante-painel').innerHTML = html;
     }
 
-    setInterval(carregarRestaurante, 3000);
-    carregarRestaurante();
+    // Atualiza automaticamente a cada 4 segundos
+    setInterval(carregarPedidos, 4000);
+    carregarPedidos();
 </script>
 
 </body>
