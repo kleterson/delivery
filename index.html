@@ -4,322 +4,174 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>App do Motoboy</title>
+    <!-- Leaflet CSS para os mapas -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 15px; }
-        .container { max-width: 480px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        h1, h2 { color: #ff5252; text-align: center; font-size: 1.4rem; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #121212; color: #fff; margin: 0; padding: 20px; display: flex; justify-content: center; }
         
-        .painel-saldo { background: #252525; border: 2px solid #4CAF50; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px; }
-        .painel-saldo h3 { margin: 0; color: #aaa; font-size: 0.9rem; text-transform: uppercase; }
-        .painel-saldo p { margin: 5px 0 0 0; color: #4CAF50; font-size: 1.8rem; font-weight: bold; }
+        .container { width: 100%; max-width: 450px; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); position: relative; overflow: hidden; }
+        
+        /* Cabeçalho com o Menu Hambúrguer */
+        .header-topo { display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 20px; }
+        .btn-menu { position: absolute; left: 0; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; padding: 0; }
+        h1 { font-size: 1.3rem; color: #ff5252; margin: 0; text-align: center; }
 
-        .painel-status-conexao { margin-bottom: 15px; }
-        .btn-status-toggle { width: 100%; padding: 14px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; border: none; cursor: pointer; transition: background 0.3s; }
-        .status-on { background-color: #4CAF50; color: white; box-shadow: 0 0 10px rgba(76,175,80,0.4); }
-        .status-off { background-color: #f44336; color: white; box-shadow: 0 0 10px rgba(244,67,54,0.4); }
-        
-        #aviso-bloqueio {
-            display: none;
-            background: #2c1a1a;
-            border: 2px solid #ff5252;
-            color: #ff9800;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            margin-bottom: 15px;
-            font-weight: bold;
-            font-size: 1.1rem;
+        /* Gaveta do Menu Lateral (Sidebar) */
+        .sidebar {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 75%; /* Ocupa um pouco mais da metade da tela */
+            height: 100%;
+            background: #252525;
+            z-index: 1000;
+            transition: 0.3s ease-in-out;
+            padding: 20px;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.7);
+            border-right: 1px solid #444;
+            display: flex;
+            flex-direction: column;
         }
+        .sidebar.ativa { left: 0; }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 15px; }
+        .btn-fechar { background: none; border: none; color: #ff5252; font-size: 1.5rem; cursor: pointer; }
 
-        #mapa-container { width: 100%; height: 240px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #444; display: none; }
+        /* Estilos gerais de botões e cards */
+        button, .btn { padding: 12px; margin: 8px 0; width: 100%; border-radius: 6px; border: none; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; display: block; box-sizing: border-box; }
+        .btn-vermelho { background-color: #ff5252; color: white; }
+        .btn-verde { background-color: #4CAF50; color: white; }
+        .btn-cinza { background-color: #333; color: white; border: 1px solid #555; }
+        
+        .card-saldo { background: #2d2d2d; border: 1px solid #444; padding: 12px; border-radius: 8px; margin-bottom: 10px; text-align: center; }
+        .card-saldo h4 { margin: 0 0 5px 0; color: #aaa; font-size: 0.85rem; }
+        .card-saldo p { margin: 0; font-size: 1.2rem; font-weight: bold; color: #4CAF50; }
 
-        .card { background: #2d2d2d; border: 1px solid #444; padding: 15px; margin-bottom: 12px; border-radius: 8px; }
-        .card-alerta { border: 2px solid #ff5252; background: #2c1a1a; animation: piscar 0.8s infinite alternate; }
-        .card-pronto { border: 2px solid #4CAF50; background: #1b2e1b; animation: piscarVerde 0.8s infinite alternate; }
+        .historico-card { background: #2d2d2d; border: 1px solid #444; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.9rem; }
+        .historico-topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .valor-verde { color: #4CAF50; font-weight: bold; font-size: 1.1rem; }
+        .mini-mapa { width: 100%; height: 100px; border-radius: 6px; margin-top: 8px; background: #333; }
 
-        @keyframes piscar { from { border-color: #ff5252; } to { border-color: #ff9800; } }
-        @keyframes piscarVerde { from { border-color: #4CAF50; } to { border-color: #8bc34a; } }
+        #map { width: 100%; height: 200px; border-radius: 8px; margin: 15px 0; border: 1px solid #444; }
         
-        input, button { padding: 12px; margin: 6px 0; width: 100%; box-sizing: border-box; border-radius: 6px; border: none; font-size: 1rem; }
-        input { background: #333; color: white; border: 1px solid #555; }
-        button { background-color: #4CAF50; color: white; cursor: pointer; font-weight: bold; }
-        button:hover { opacity: 0.9; }
-        
-        .btn-recusar { background-color: #f44336; }
-        .btn-aceitar { background-color: #2196F3; }
-        .btn-rota { background-color: #00bcd4; color: white; text-align: center; text-decoration: none; display: block; padding: 12px; border-radius: 6px; font-weight: bold; margin: 6px 0; }
-        .btn-chegada { background-color: #ff9800; }
-        .btn-historico { background-color: #607D8B; margin-top: 10px; }
-        .btn-sair { background-color: #d32f2f; margin-top: 10px; }
-        .badge { background: #ff5252; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; }
-        
-        #modal-historico { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; z-index: 9999; }
-        .modal-conteudo { background: #1e1e1e; width: 100%; max-width: 450px; max-height: 80vh; overflow-y: auto; padding: 20px; border-radius: 10px; border: 1px solid #555; }
-        .auth-box { display: none; }
+        .oculto { display: none !important; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>🛵 App do Motoboy</h1>
+<div class="container" id="app-container">
+    
+    <!-- TELA DE LOGIN -->
+    <div id="tela-login">
+        <h1>🍔 Login do Motoboy</h1>
+        <input type="text" id="login-usuario" placeholder="Nome de usuário" style="width:100%; padding:12px; margin:8px 0; background:#2d2d2d; border:1px solid #444; color:#fff; border-radius:6px;">
+        <input type="password" id="login-senha" placeholder="Senha" style="width:100%; padding:12px; margin:8px 0; background:#2d2d2d; border:1px solid #444; color:#fff; border-radius:6px;">
+        <button class="btn-verde" onclick="fazerLogin()">Entrar</button>
+        <p style="text-align:center; margin-top:15px; font-size:0.9rem;">Não tem conta? <a href="#" onclick="alternarTelaCadastro()" style="color:#ff5252;">Cadastre-se</a></p>
+    </div>
 
-    <div id="tela-auth" class="auth-box" style="display: block;">
-        <div id="form-login">
-            <h2>Entrar na Conta</h2>
-            <input type="text" id="login-usuario" placeholder="Usuário">
-            <input type="password" id="login-senha" placeholder="Senha">
-            <button onclick="fazerLogin()">Entrar</button>
-            <p style="text-align: center; margin-top: 15px; font-size: 0.9rem;">Não tem cadastro? <a href="#" onclick="alternarTelaAuth('cadastro')" style="color: #4CAF50;">Cadastre-se</a></p>
+    <!-- TELA DE CADASTRO -->
+    <div id="tela-cadastro" class="oculto">
+        <h1>🍔 Cadastro de Motoboy</h1>
+        <input type="text" id="cad-nome" placeholder="Nome Completo" style="width:100%; padding:12px; margin:8px 0; background:#2d2d2d; border:1px solid #444; color:#fff; border-radius:6px;">
+        <input type="text" id="cad-usuario" placeholder="Nome de usuário" style="width:100%; padding:12px; margin:8px 0; background:#2d2d2d; border:1px solid #444; color:#fff; border-radius:6px;">
+        <input type="password" id="cad-senha" placeholder="Senha" style="width:100%; padding:12px; margin:8px 0; background:#2d2d2d; border:1px solid #444; color:#fff; border-radius:6px;">
+        <button class="btn-verde" onclick="fazerCadastro()">Cadastrar</button>
+        <p style="text-align:center; margin-top:15px; font-size:0.9rem;"><a href="#" onclick="alternarTelaCadastro()" style="color:#ff5252;">Voltar ao Login</a></p>
+    </div>
+
+    <!-- TELA PRINCIPAL DO APLICATIVO -->
+    <div id="tela-principal" class="oculto">
+        
+        <!-- MENU LATERAL (GAVETA / SIDEBAR) -->
+        <div id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3 style="color:#ff5252; margin:0;">Menu</h3>
+                <button class="btn-fechar" onclick="fecharMenu()">&times;</button>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <p style="margin:0; font-size:0.85rem; color:#aaa;">Bem-vindo,</p>
+                <h3 id="menu-nome-motoboy" style="margin:5px 0 0 0; color:#fff;">Motoboy</h3>
+            </div>
+            
+            <button class="btn-cinza" onclick="abrirHistorico()">📊 Resumo e Histórico</button>
+            <button class="btn-vermelho" style="margin-top:auto;" onclick="sairDaConta()">Sair da Conta</button>
         </div>
 
-        <div id="form-cadastro" style="display: none;">
-            <h2>Criar Nova Conta</h2>
-            <input type="text" id="cad-nome" placeholder="Seu Nome Completo">
-            <input type="text" id="cad-usuario" placeholder="Criar Usuário">
-            <input type="password" id="cad-senha" placeholder="Criar Senha">
-            <button onclick="fazerCadastro()" style="background-color: #ff9800;">Cadastrar</button>
-            <p style="text-align: center; margin-top: 15px; font-size: 0.9rem;">Já tem conta? <a href="#" onclick="alternarTelaAuth('login')" style="color: #4CAF50;">Faça Login</a></p>
+        <!-- CABEÇALHO DO APP -->
+        <div class="header-topo">
+            <button class="btn-menu" onclick="abrirMenu()">☰</button>
+            <h1>🛵 App do Motoboy</h1>
+        </div>
+
+        <p id="saudacao-usuario" style="text-align: center; color: #4CAF50; font-size: 0.9rem; margin-top: -10px; margin-bottom: 15px;"></p>
+
+        <!-- BOTÃO DE CONEXÃO -->
+        <button id="btn-conexao" class="btn-vermelho" onclick="alternarConexao()">🔴 OFFLINE (Toque para Conectar)</button>
+
+        <!-- MAPA GPS -->
+        <div id="map"></div>
+
+        <!-- SALDO ACUMULADO PRINCIPAL -->
+        <div style="background: #2d2d2d; border: 1px solid #444; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
+            <p style="margin: 0; font-size: 0.85rem; color: #aaa;">SEU SALDO ACUMULADO</p>
+            <h2 id="saldo-acumulado" style="margin: 5px 0 0 0; color: #4CAF50;">R$ 0.00</h2>
+        </div>
+
+        <button class="btn-cinza" onclick="abrirHistorico()">Ver Entregas Realizadas</button>
+        
+        <div id="area-pedidos" style="margin-top: 15px;">
+            <p style="text-align: center; color: #777;">Procurando pedidos disponíveis...</p>
         </div>
     </div>
 
-    <div id="tela-app" style="display: none;">
-        <p id="saudacao-motoboy" style="text-align: center; color: #4CAF50; font-weight: bold; margin-bottom: 10px;"></p>
-
-        <div id="aviso-bloqueio">
-            Temporariamente bloqueado, aguarde... <br>
-            <span style="font-size: 2rem;">⏱️ <span id="contador-bloqueio">05:00</span></span>
+    <!-- TELA DE HISTÓRICO E SALDOS (PAINEL) -->
+    <div id="tela-historico" class="oculto">
+        <div style="display:flex; align-items:center; margin-bottom:15px;">
+            <button class="btn-cinza" style="width:auto; padding:6px 12px; margin:0;" onclick="voltarPainelPrincipal()">⬅ Voltar</button>
+            <h2 style="margin:0 auto; color:#ff5252; font-size:1.1rem;">Resumo & Histórico</h2>
         </div>
 
-        <div class="painel-status-conexao">
-            <button id="btn-toggle-status" class="btn-status-toggle status-off" onclick="alternarStatusOnline()">🔴 OFFLINE (Toque para Conectar)</button>
+        <!-- Saldos -->
+        <div class="card-saldo">
+            <h4>SALDO DIÁRIO (Hoje)</h4>
+            <p id="resumo-diario">R$ 0.00</p>
+        </div>
+        <div class="card-saldo">
+            <h4>SALDO DA SEMANA</h4>
+            <p id="resumo-semana">R$ 0.00</p>
+        </div>
+        <div class="card-saldo">
+            <h4>SALDO DO MÊS</h4>
+            <p id="resumo-mes">R$ 0.00</p>
         </div>
 
-        <!-- MAPA COM A MOTINHA NO CENTRO -->
-        <div id="mapa-container"></div>
-
-        <div class="painel-saldo">
-            <h3>Seu Saldo Acumulado</h3>
-            <p id="saldo-total">R$ 0,00</p>
+        <h3 style="font-size:1rem; color:#ff5252; margin-top:20px; border-bottom:1px solid #333; padding-bottom:5px;">Histórico de Corridas</h3>
+        <div id="lista-historico-corridas">
+            <p style="text-align:center; color:#777; font-size:0.85rem;">Nenhuma corrida realizada ainda.</p>
         </div>
-
-        <div id="aviso-audio" style="background: #2a2a1a; border: 1px solid #ff9800; padding: 12px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-size: 0.9rem; color: #ffcc00; cursor: pointer;" onclick="ativarAppCompleto()">
-            🔔 Toque aqui para habilitar o Alarme e Notificações
-        </div>
-
-        <div id="motoboy-painel">Conecte-se para procurar entregas...</div>
-
-        <button class="btn-historico" onclick="abrirHistorico()">Ver Entregas Realizadas</button>
-        <button class="btn-sair" onclick="fazerLogout()">Sair da Conta</button>
     </div>
+
 </div>
 
-<div id="modal-historico">
-    <div class="modal-conteudo">
-        <h2>Suas Entregas Realizadas</h2>
-        <div id="lista-historico">Carregando...</div>
-        <button onclick="fecharHistorico()" style="background-color: #f44336; margin-top: 15px;">Fechar</button>
-    </div>
-</div>
-
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <script>
     const API_URL = window.location.origin;
-    let audioInterval = null;
-    let audioCtx = null;
-    let ultimoPedidoNotificado = null;
-    let ultimoPedidoProntoNotificado = null;
-    let motoboyLogado = JSON.parse(localStorage.getItem('motoboy_logado')) || null;
-    let estaOnline = false;
-    let watchId = null;
+    let motoboyLogado = null;
     let map = null;
-    let markerMotoboy = null;
-    let timerBloqueio = null;
+    let online = false;
 
-    function formatarTempo(segundos) {
-        const min = Math.floor(segundos / 60);
-        const seg = segundos % 60;
-        return `${min.toString().padStart(2, '0')}:${seg.toString().padStart(2, '0')}`;
-    }
-
-    function iniciarContagemBloqueio(segundosIniciais) {
-        const divAviso = document.getElementById('aviso-bloqueio');
-        const spanContador = document.getElementById('contador-bloqueio');
-        const btnToggle = document.getElementById('btn-toggle-status');
-        
-        divAviso.style.display = 'block';
-        btnToggle.disabled = true;
-        btnToggle.style.opacity = '0.5';
-        
-        let tempoRestante = segundosIniciais;
-        if (timerBloqueio) clearInterval(timerBloqueio);
-        
-        timerBloqueio = setInterval(() => {
-            tempoRestante--;
-            if (tempoRestante <= 0) {
-                clearInterval(timerBloqueio);
-                divAviso.style.display = 'none';
-                btnToggle.disabled = false;
-                btnToggle.style.opacity = '1';
-                spanContador.innerText = "05:00";
-            } else {
-                spanContador.innerText = formatarTempo(tempoRestante);
-            }
-        }, 1000);
-    }
-
-    function verificarSessao() {
-        if (motoboyLogado) {
-            document.getElementById('tela-auth').style.display = 'none';
-            document.getElementById('tela-app').style.display = 'block';
-            document.getElementById('saudacao-motoboy').innerText = `Olá, ${motoboyLogado.nome} 🛵`;
-            document.getElementById('mapa-container').style.display = 'block';
-            
-            inicializarMapa();
-            iniciarLoopApp();
-        } else {
-            document.getElementById('tela-auth').style.display = 'block';
-            document.getElementById('tela-app').style.display = 'none';
-        }
-    }
-
-    function inicializarMapa() {
-        if (map) {
-            map.invalidateSize();
-            return;
-        }
-        
-        map = L.map('mapa-container').setView([-15.7801, -47.9292], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
-
-        setTimeout(() => { 
-            map.invalidateSize(); 
-        }, 400);
-    }
-
-    function atualizarPosicaoNoMapa(lat, lon) {
-        if (!map) return;
-        const coords = [lat, lon];
-        if (!markerMotoboy) {
-            const iconeMoto = L.divIcon({
-                html: '<div style="font-size: 24px; text-shadow: 0 0 3px #fff;">🛵</div>',
-                className: 'custom-motoboy-icon',
-                iconSize: [30, 30],
-                iconAnchor: [15, 15]
-            });
-            markerMotoboy = L.marker(coords, { icon: iconeMoto }).addTo(map);
-        } else {
-            markerMotoboy.setLatLng(coords);
-        }
-        map.setView(coords, 17);
-    }
-
-    async function alternarStatusOnline() {
-        const btn = document.getElementById('btn-toggle-status');
-        const novoStatus = !estaOnline;
-        
-        try {
-            const res = await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/status-conexao`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ online: novoStatus })
-            });
-            
-            const json = await res.json();
-            
-            if (res.status === 403) {
-                estaOnline = false;
-                btn.className = "btn-status-toggle status-off";
-                btn.innerHTML = "🔴 OFFLINE (Toque para Conectar)";
-                pararGeolocalizacao();
-                iniciarContagemBloqueio(json.tempoRestante);
-                return;
-            }
-
-            if (res.ok) {
-                estaOnline = novoStatus;
-                if (estaOnline) {
-                    btn.className = "btn-status-toggle status-on";
-                    btn.innerHTML = "🟢 ONLINE (Pronto para entregas)";
-                    iniciarGeolocalizacao();
-                } else {
-                    btn.className = "btn-status-toggle status-off";
-                    btn.innerHTML = "🔴 OFFLINE (Toque para Conectar)";
-                    pararGeolocalizacao();
-                    pararAlarmeSonoro();
-                    document.getElementById('motoboy-painel').innerHTML = "<p style='color:#777; text-align:center;'>Você está offline.</p>";
-                }
-            }
-        } catch (e) {
-            console.log("Erro ao atualizar status", e);
-        }
-    }
-
-    function iniciarGeolocalizacao() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    atualizarPosicaoNoMapa(pos.coords.latitude, pos.coords.longitude);
-                    enviarCoordenadasServidor(pos.coords.latitude, pos.coords.longitude);
-                },
-                (err) => console.log("Erro GPS inicial:", err),
-                { enableHighAccuracy: true }
-            );
-
-            watchId = navigator.geolocation.watchPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    atualizarPosicaoNoMapa(lat, lon);
-                    enviarCoordenadasServidor(lat, lon);
-                },
-                (error) => { console.log("Erro GPS watch:", error); },
-                { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
-            );
-        } else {
-            alert("Geolocalização não é suportada.");
-        }
-    }
-
-    function pararGeolocalizacao() {
-        if (watchId !== null && navigator.geolocation) {
-            navigator.geolocation.clearWatch(watchId);
-            watchId = null;
-        }
-    }
-
-    async function enviarCoordenadasServidor(lat, lon) {
-        if (!motoboyLogado || !estaOnline) return;
-        try {
-            await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/localizacao`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat, lon, online: estaOnline })
-            });
-        } catch (e) {
-            console.log("Erro ao enviar coordenadas", e);
-        }
-    }
-
-    function alternarTelaAuth(tipo) {
-        if (tipo === 'cadastro') {
-            document.getElementById('form-login').style.display = 'none';
-            document.getElementById('form-cadastro').style.display = 'block';
-        } else {
-            document.getElementById('form-cadastro').style.display = 'none';
-            document.getElementById('form-login').style.display = 'block';
-        }
+    function alternarTelaCadastro() {
+        document.getElementById('tela-login').classList.toggle('oculto');
+        document.getElementById('tela-cadastro').classList.toggle('oculto');
     }
 
     async function fazerCadastro() {
         const nome = document.getElementById('cad-nome').value;
         const usuario = document.getElementById('cad-usuario').value;
         const senha = document.getElementById('cad-senha').value;
-
+        
         const res = await fetch(`${API_URL}/motoboys/cadastrar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -327,8 +179,8 @@
         });
         const json = await res.json();
         if (res.ok) {
-            alert(json.mensagem);
-            alternarTelaAuth('login');
+            alert("Cadastro realizado com sucesso! Faça login.");
+            alternarTelaCadastro();
         } else {
             alert(json.erro);
         }
@@ -346,309 +198,170 @@
         const json = await res.json();
         if (res.ok) {
             motoboyLogado = json.motoboy;
-            localStorage.setItem('motoboy_logado', JSON.stringify(motoboyLogado));
-            verificarSessao();
+            document.getElementById('tela-login').classList.add('oculto');
+            document.getElementById('tela-principal').classList.remove('oculto');
+            
+            // Atualiza os nomes na tela e no menu lateral
+            document.getElementById('saudacao-usuario').innerText = `Olá, ${motoboyLogado.nome} 🛵`;
+            document.getElementById('menu-nome-motoboy').innerText = motoboyLogado.nome;
+            
+            inicializarMapa();
+            buscarPedidos();
+            setInterval(buscarPedidos, 3000);
         } else {
             alert(json.erro);
         }
     }
 
-    function fazerLogout() {
-        estaOnline = false;
-        pararGeolocalizacao();
-        localStorage.removeItem('motoboy_logado');
+    function abrirMenu() {
+        document.getElementById('sidebar').classList.add('ativa');
+    }
+
+    function fecharMenu() {
+        document.getElementById('sidebar').classList.remove('ativa');
+    }
+
+    function sairDaConta() {
         motoboyLogado = null;
-        pararAlarmeSonoro();
-        if (timerBloqueio) clearInterval(timerBloqueio);
         location.reload();
     }
 
-    function ativarAppCompleto() {
-        try {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            if (window.Notification && Notification.permission !== "granted") {
-                Notification.requestPermission();
+    function inicializarMapa() {
+        if (!map) {
+            map = L.map('map').setView([-23.550520, -46.633308], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.html', {
+                maxZoom: 19,
+            }).addTo(map);
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(pos => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    map.setView([lat, lon], 16);
+                    L.marker([lat, lon]).addTo(map);
+                });
             }
-            document.getElementById('aviso-audio').style.display = 'none';
-            tocarAlarmeAgitado(1400);
-            alert("App ativado com sucesso!");
-        } catch (e) {
-            console.log("Erro áudio:", e);
         }
     }
 
-    function dispararNotificacaoNativa(titulo, corpo) {
-        if (window.Notification && Notification.permission === "granted") {
-            new Notification(titulo, {
-                body: corpo,
-                icon: "https://cdn-icons-png.flaticon.com/512/3076/3076129.png"
-            });
+    async function alternarConexao() {
+        online = !online;
+        const btn = document.getElementById('btn-conexao');
+        if (online) {
+            btn.className = "btn btn-verde";
+            btn.innerText = "🟢 ONLINE (Toque para Desconectar)";
+        } else {
+            btn.className = "btn btn-vermelho";
+            btn.innerText = "🔴 OFFLINE (Toque para Conectar)";
         }
+        await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/status-conexao`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ online })
+        });
     }
 
-    function tocarAlarmeAgitado(freq = 1400) {
-        try {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const agora = audioCtx.currentTime;
-
-            let osc1 = audioCtx.createOscillator();
-            let gain1 = audioCtx.createGain();
-            osc1.type = 'triangle';
-            osc1.frequency.setValueAtTime(freq - 450, agora);
-            gain1.gain.setValueAtTime(0.3, agora);
-            gain1.gain.exponentialRampToValueAtTime(0.01, agora + 0.15);
-            osc1.connect(gain1); gain1.connect(audioCtx.destination);
-            osc1.start(agora); osc1.stop(agora + 0.15);
-
-            let osc2 = audioCtx.createOscillator();
-            let gain2 = audioCtx.createGain();
-            osc2.type = 'square';
-            osc2.frequency.setValueAtTime(freq, agora + 0.18);
-            gain2.gain.setValueAtTime(0.3, agora + 0.18);
-            gain2.gain.exponentialRampToValueAtTime(0.01, agora + 0.35);
-            osc2.connect(gain2); gain2.connect(audioCtx.destination);
-            osc2.start(agora + 0.18); osc2.stop(agora + 0.35);
-        } catch (e) {
-            console.log("Áudio bloqueado.", e);
-        }
-    }
-
-    function iniciarAlarmeSonoro(cliente, ganho, idPedido) {
-        if (!audioInterval) {
-            tocarAlarmeAgitado(1400);
-            audioInterval = setInterval(() => tocarAlarmeAgitado(1400), 1200);
-        }
-        if (ultimoPedidoNotificado !== idPedido) {
-            ultimoPedidoNotificado = idPedido;
-            dispararNotificacaoNativa("🚨 Nova Entrega Disponível!", `Cliente: ${cliente} | Ganho: R$ ${ganho}`);
-        }
-    }
-
-    function pararAlarmeSonoro() {
-        if (audioInterval) {
-            clearInterval(audioInterval);
-            audioInterval = null;
-        }
-        ultimoPedidoNotificado = null;
-    }
-
-    async function atualizarPainelMotoboy() {
+    async function buscarPedidos() {
         if (!motoboyLogado) return;
-
-        const activeInput = document.activeElement;
-        if (activeInput && activeInput.tagName === 'INPUT') {
-            return;
-        }
-
         const res = await fetch(`${API_URL}/pedidos`);
         const pedidos = await res.json();
         
-        let htmlMotoboy = '';
-        let temPedidoDisponivel = false;
-        let idPedidoAtual = null;
-        let clienteAtual = '';
-        let ganhoAtual = 0;
-        let saldoAcumulado = 0;
+        let html = '';
+        let saldoTotal = 0;
+        let historicoHtml = '';
+        let diario = 0, semana = 0, mes = 0;
 
         pedidos.forEach(p => {
-            if (p.status === 'Entregue' && p.motoboyId === motoboyLogado.id) {
-                saldoAcumulado += p.financeiro.taxaEntrega;
+            if (p.motoboyId === motoboyLogado.id) {
+                if (p.status === 'Entregue') {
+                    saldoTotal += (p.financeiro?.taxaEntrega || 10.00);
+                    diario += (p.financeiro?.taxaEntrega || 10.00);
+                    semana += (p.financeiro?.taxaEntrega || 10.00);
+                    mes += (p.financeiro?.taxaEntrega || 10.00);
+
+                    const dataHoraFormatada = new Date(p.data || Date.now()).toLocaleString('pt-BR');
+                    const valorEntrega = (p.financeiro?.taxaEntrega || 10.00).toFixed(2);
+
+                    historicoHtml += `
+                        <div class="historico-card">
+                            <div class="historico-topo">
+                                <strong>Pedido #${p.id} - ${p.cliente}</strong>
+                                <span class="valor-verde">R$ ${valorEntrega}</span>
+                            </div>
+                            <p style="margin:4px 0; color:#aaa; font-size:0.8rem;">📍 ${p.entrega.enderecoCliente}</p>
+                            <p style="margin:4px 0; color:#888; font-size:0.75rem;">🕒 ${dataHoraFormatada}</p>
+                            <div id="mini-mapa-${p.id}" class="mini-mapa"></div>
+                        </div>
+                    `;
+                }
             }
 
-            if (p.status === 'Disponível' && estaOnline) {
-                temPedidoDisponivel = true;
-                idPedidoAtual = p.id;
-                clienteAtual = p.cliente;
-                ganhoAtual = p.financeiro.taxaEntrega;
-
-                htmlMotoboy += `
-                    <div class="card card-alerta">
-                        <span class="badge">NOVA ENTREGA!</span>
-                        <p><strong>Cliente:</strong> ${p.cliente}</p>
-                        <p><strong>Endereço de Entrega:</strong> <span style="color:#ffcc00;">${p.entrega.enderecoCliente}</span></p>
-                        <p><strong>Distância:</strong> ${p.entrega.distanciaKm} km</p>
-                        <p><strong>Ganho:</strong> <span style="color:#4CAF50; font-weight:bold; font-size: 1.2rem;">R$ ${p.financeiro.taxaEntrega.toFixed(2)}</span></p>
-                        <button class="btn-aceitar" onclick="aceitarPedido(${p.id})">ACEITAR ENTREGA</button>
-                        <button class="btn-recusar" onclick="recusarPedido(${p.id})">RECUSAR</button>
-                    </div>
-                `;
-            } else if ((p.status === 'Aguardando Chegada ao Restaurante' || p.status === 'Motoboy Chegou no Restaurante' || p.status === 'Produto Pronto para Coleta') && p.motoboyId === motoboyLogado.id) {
-                
-                let statusTexto = "VÁ AO RESTAURANTE";
-                let cardClass = "card";
-
-                if (p.status === 'Motoboy Chegou no Restaurante') {
-                    statusTexto = "AGUARDANDO O PRODUTO FICAR PRONTO";
-                } else if (p.status === 'Produto Pronto para Coleta') {
-                    statusTexto = "📦 PRODUTO PRONTO NO BALCÃO!";
-                    cardClass = "card card-pronto";
-
-                    if (ultimoPedidoProntoNotificado !== p.id) {
-                        ultimoPedidoProntoNotificado = p.id;
-                        tocarAlarmeAgitado(800);
-                        dispararNotificacaoNativa("🟢 Pedido Pronto!", `O pedido #${p.id} de ${p.cliente} já está pronto para coleta!`);
-                    }
-                }
-
-                htmlMotoboy += `
-                    <div class="${cardClass}">
-                        <span class="badge" style="background:${p.status === 'Produto Pronto para Coleta' ? '#4CAF50' : '#ff9800'}">${statusTexto}</span>
-                        <p><strong>Pedido #${p.id}</strong> - Cliente: <strong style="color:#ffcc00;">${p.cliente}</strong></p>
-                        <p>📍 <strong>Retirada:</strong> ${p.retirada.endereco}</p>
-                        
-                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.retirada.endereco)}" target="_blank" class="btn-rota">
-                            🗺️ Abrir Rota para o Restaurante (Google Maps)
-                        </a>
-
-                        <p>💰 <strong>Ganho:</strong> <span style="color:#4CAF50;">R$ ${p.financeiro.taxaEntrega.toFixed(2)}</span></p>
-                        
-                        ${p.status === 'Aguardando Chegada ao Restaurante' ? `
-                            <button class="btn-chegada" onclick="notificarChegada(${p.id})">📍 Cheguei no Restaurante</button>
-                        ` : ''}
-
-                        <input type="text" id="codigo-coleta-${p.id}" placeholder="Código de Coleta do Restaurante" style="margin-top: 10px;">
-                        <button onclick="coletarPedido(${p.id})">Confirmar Coleta</button>
-                        <button class="btn-recusar" onclick="recusarPedido(${p.id})" style="margin-top:5px;">Cancelar Corrida</button>
-                    </div>
-                `;
-            } else if (p.status === 'Em Trânsito' && p.motoboyId === motoboyLogado.id) {
-                htmlMotoboy += `
-                    <div class="card">
-                        <span class="badge" style="background:#2196F3">EM ROTA DE ENTREGA</span>
-                        <p>👤 <strong>Cliente:</strong> <span style="color:#4CAF50; font-size: 1.1rem;">${p.cliente}</span></p>
-                        <p>📍 <strong>Destino:</strong> ${p.entrega.enderecoCliente}</p>
-                        
-                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.entrega.enderecoCliente)}" target="_blank" class="btn-rota">
-                            🗺️ Abrir Rota para o Cliente (Google Maps)
-                        </a>
-
-                        <p>💰 <strong>Ganho:</strong> <span style="color:#4CAF50; font-weight:bold; font-size: 1.1rem;">R$ ${p.financeiro.taxaEntrega.toFixed(2)}</span></p>
-                        <p style="font-size: 0.85rem; color: #888;">(Peça o código de 4 dígitos diretamente ao cliente)</p>
-                        <input type="text" id="codigo-entrega-${p.id}" placeholder="Digite o Código do Cliente">
-                        <button onclick="entregarPedido(${p.id})" style="background-color: #8bc34a;">Concluir Entrega</button>
+            if (p.status === 'Disponível' && online) {
+                html += `
+                    <div style="background:#2d2d2d; padding:12px; border-radius:8px; border:1px solid #444; margin-bottom:10px;">
+                        <p style="margin:0 0 8px 0;"><strong>Cliente:</strong> ${p.cliente}</p>
+                        <p style="margin:0 0 8px 0; font-size:0.85rem; color:#aaa;">📍 ${p.entrega.enderecoCliente}</p>
+                        <button class="btn-verde" onclick="aceitarPedido(${p.id})">Aceitar Corrida</button>
                     </div>
                 `;
             }
         });
 
-        document.getElementById('saldo-total').innerText = `R$ ${saldoAcumulado.toFixed(2)}`;
+        document.getElementById('saldo-acumulado').innerText = `R$ ${saldoTotal.toFixed(2)}`;
+        document.getElementById('resumo-diario').innerText = `R$ ${diario.toFixed(2)}`;
+        document.getElementById('resumo-semana').innerText = `R$ ${semana.toFixed(2)}`;
+        document.getElementById('resumo-mes').innerText = `R$ ${mes.toFixed(2)}`;
 
-        if (temPedidoDisponivel && estaOnline) {
-            iniciarAlarmeSonoro(clienteAtual, ganhoAtual, idPedidoAtual);
-        } else {
-            pararAlarmeSonoro();
-            if (!htmlMotoboy) {
-                htmlMotoboy = estaOnline ? 
-                    "<p style='color:#777; text-align:center;'>Procurando novas entregas próximas...</p>" : 
-                    "<p style='color:#777; text-align:center;'>Você está offline. Fique online para receber pedidos.</p>";
-            }
+        if (historicoHtml) {
+            document.getElementById('lista-historico-corridas').innerHTML = historicoHtml;
+            // Renderiza mini mapas das entregas concluídas
+            setTimeout(() => {
+                pedidos.forEach(p => {
+                    if (p.motoboyId === motoboyLogado.id && p.status === 'Entregue') {
+                        const el = document.getElementById(`mini-mapa-${p.id}`);
+                        if (el && !el._leaflet_id) {
+                            const mMini = L.map(el, {zoomControl: false, attributionControl: false}).setView([-23.5505, -46.6333], 14);
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.html').addTo(mMini);
+                            L.marker([-23.5505, -46.6333]).addTo(mMini);
+                        }
+                    }
+                });
+            }, 100);
         }
 
-        document.getElementById('motoboy-painel').innerHTML = htmlMotoboy;
+        if (!html && online) {
+            html = '<p style="text-align: center; color: #777;">Aguardando novas entregas...</p>';
+        } else if (!online) {
+            html = '<p style="text-align: center; color: #777;">Você está offline. Fique online para ver pedidos.</p>';
+        }
+
+        document.getElementById('area-pedidos').innerHTML = html;
     }
 
     async function aceitarPedido(id) {
-        pararAlarmeSonoro();
         const res = await fetch(`${API_URL}/pedidos/${id}/aceitar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ motoboyId: motoboyLogado.id, motoboyNome: motoboyLogado.nome })
         });
-        const json = await res.json();
-        if (!res.ok) alert(json.erro);
-        atualizarPainelMotoboy();
-    }
-
-    async function notificarChegada(id) {
-        const res = await fetch(`${API_URL}/pedidos/${id}/chegou-restaurante`, { method: 'POST' });
-        const json = await res.json();
         if (res.ok) {
-            alert("Chegada notificada ao restaurante com sucesso!");
-            atualizarPainelMotoboy();
+            alert("Pedido aceito!");
+            buscarPedidos();
         } else {
+            const json = await res.json();
             alert(json.erro);
         }
     }
 
-    async function recusarPedido(id) {
-        pararAlarmeSonoro();
-        await fetch(`${API_URL}/pedidos/${id}/recusar`, { method: 'POST' });
-        
-        // Força o app a ficar offline imediatamente após cancelar/recusar o pedido em andamento
-        estaOnline = false;
-        pararGeolocalizacao();
-        const btn = document.getElementById('btn-toggle-status');
-        btn.className = "btn-status-toggle status-off";
-        btn.innerHTML = "🔴 OFFLINE (Toque para Conectar)";
-        
-        // Inicia automaticamente os 5 minutos de bloqueio na tela do motoboy
-        iniciarContagemBloqueio(300);
-        
-        atualizarPainelMotoboy();
+    function abrirHistorico() {
+        fecharMenu();
+        document.getElementById('tela-principal').classList.add('oculto');
+        document.getElementById('tela-historico').classList.remove('oculto');
     }
 
-    async function coletarPedido(id) {
-        const inputElem = document.getElementById(`codigo-coleta-${id}`);
-        const codigoColeta = inputElem ? inputElem.value : '';
-        const res = await fetch(`${API_URL}/pedidos/${id}/coletar`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ codigoColeta })
-        });
-        const json = await res.json();
-        if (res.ok) { alert(json.mensagem); atualizarPainelMotoboy(); }
-        else { alert(json.erro); }
+    function voltarPainelPrincipal() {
+        document.getElementById('tela-historico').classList.add('oculto');
+        document.getElementById('tela-principal').classList.remove('oculto');
     }
-
-    async function entregarPedido(id) {
-        const inputElem = document.getElementById(`codigo-entrega-${id}`);
-        const codigoEntrega = inputElem ? inputElem.value : '';
-        const res = await fetch(`${API_URL}/pedidos/${id}/entregar`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ codigoEntrega })
-        });
-        const json = await res.json();
-        if (res.ok) { alert(json.mensagem); atualizarPainelMotoboy(); }
-        else { alert(json.erro); }
-    }
-
-    async function abrirHistorico() {
-        const res = await fetch(`${API_URL}/pedidos`);
-        const pedidos = await res.json();
-        const entregues = pedidos.filter(p => p.status === 'Entregue' && p.motoboyId === motoboyLogado.id);
-
-        let html = '';
-        if (entregues.length === 0) {
-            html = '<p style="color:#777; text-align:center;">Nenhuma entrega concluída por você ainda.</p>';
-        } else {
-            entregues.forEach(p => {
-                html += `
-                    <div style="background:#252525; padding: 10px; margin-bottom: 8px; border-radius: 6px; border-left: 4px solid #4CAF50;">
-                        <p style="margin:0 0 5px 0;"><strong>Pedido #${p.id}</strong> - ${p.cliente}</p>
-                        <p style="margin:0 0 5px 0; font-size:0.9rem; color:#aaa;">📍 ${p.entrega.enderecoCliente}</p>
-                        <p style="margin:0; color:#4CAF50; font-weight:bold;">Ganho: R$ ${p.financeiro.taxaEntrega.toFixed(2)}</p>
-                    </div>
-                `;
-            });
-        }
-
-        document.getElementById('lista-historico').innerHTML = html;
-        document.getElementById('modal-historico').style.display = 'flex';
-    }
-
-    function fecharHistorico() {
-        document.getElementById('modal-historico').style.display = 'none';
-    }
-
-    function iniciarLoopApp() {
-        setInterval(atualizarPainelMotoboy, 4000);
-        atualizarPainelMotoboy();
-    }
-
-    verificarSessao();
 </script>
 
 </body>
