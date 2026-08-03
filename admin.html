@@ -202,6 +202,12 @@
     }
 
     async function carregarPedidos() {
+        // Se o usuário estiver focado em qualquer input, bloqueia totalmente o recarregamento automático da tela
+        const elementoAtivo = document.activeElement;
+        if (elementoAtivo && (elementoAtivo.tagName === 'INPUT' || elementoAtivo.tagName === 'TEXTAREA')) {
+            return;
+        }
+
         try {
             const res = await fetch(`${API_URL}/restaurante/pedidos`);
             const pedidos = await res.json();
@@ -222,14 +228,18 @@
                 });
             }
 
-            document.getElementById('lista-pedidos').innerHTML = html;
+            // Só atualiza se o conteúdo realmente mudou ou se o container estiver vazio, evitando piscadas desnecessárias
+            const container = document.getElementById('lista-pedidos');
+            if (container.innerHTML !== html) {
+                container.innerHTML = html;
+            }
         } catch (e) {
             console.log("Erro ao carregar pedidos", e);
         }
     }
 
-    // Atualiza automaticamente a cada 4 segundos
-    setInterval(carregarPedidos, 4000);
+    // Intervalo ajustado para 6 segundos para dar mais respiro ao celular
+    setInterval(carregarPedidos, 6000);
     carregarPedidos();
 </script>
 
