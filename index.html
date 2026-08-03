@@ -15,7 +15,10 @@
 
         .card { background: #2d2d2d; border: 1px solid #444; padding: 15px; margin-bottom: 12px; border-radius: 8px; }
         .card-alerta { border: 2px solid #ff5252; background: #2c1a1a; animation: piscar 0.8s infinite alternate; }
+        .card-pronto { border: 2px solid #4CAF50; background: #1b2e1b; animation: piscarVerde 0.8s infinite alternate; }
+
         @keyframes piscar { from { border-color: #ff5252; } to { border-color: #ff9800; } }
+        @keyframes piscarVerde { from { border-color: #4CAF50; } to { border-color: #8bc34a; } }
         
         input, button { padding: 12px; margin: 6px 0; width: 100%; box-sizing: border-box; border-radius: 6px; border: none; font-size: 1rem; }
         input { background: #333; color: white; border: 1px solid #555; }
@@ -60,7 +63,7 @@
         </div>
     </div>
 
-    <!-- TELA PRINCIPAL DO APLICATIVO (APÓS LOGIN) -->
+    <!-- TELA PRINCIPAL DO APLICATIVO -->
     <div id="tela-app" style="display: none;">
         <p id="saudacao-motoboy" style="text-align: center; color: #4CAF50; font-weight: bold;"></p>
 
@@ -93,6 +96,7 @@
     let audioInterval = null;
     let audioCtx = null;
     let ultimoPedidoNotificado = null;
+    let ultimoPedidoProntoNotificado = null;
     let motoboyLogado = JSON.parse(localStorage.getItem('motoboy_logado')) || null;
 
     function verificarSessao() {
@@ -170,23 +174,23 @@
                 Notification.requestPermission();
             }
             document.getElementById('aviso-audio').style.display = 'none';
-            tocarAlarmeAgitado();
+            tocarAlarmeAgitado(1400);
             alert("App ativado com sucesso!");
         } catch (e) {
             console.log("Erro áudio:", e);
         }
     }
 
-    function dispararNotificacaoNativa(cliente, ganho) {
+    function dispararNotificacaoNativa(titulo, corpo) {
         if (window.Notification && Notification.permission === "granted") {
-            new Notification("🚨 Nova Entrega Disponível!", {
-                body: `Cliente: ${cliente} | Ganho: R$ ${ganho}`,
+            new Notification(titulo, {
+                body: corpo,
                 icon: "https://cdn-icons-png.flaticon.com/512/3076/3076129.png"
             });
         }
     }
 
-    function tocarAlarmeAgitado() {
+    function tocarAlarmeAgitado(freq = 1400) {
         try {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -195,7 +199,7 @@
             let osc1 = audioCtx.createOscillator();
             let gain1 = audioCtx.createGain();
             osc1.type = 'triangle';
-            osc1.frequency.setValueAtTime(950, agora);
+            osc1.frequency.setValueAtTime(freq - 450, agora);
             gain1.gain.setValueAtTime(0.3, agora);
             gain1.gain.exponentialRampToValueAtTime(0.01, agora + 0.15);
             osc1.connect(gain1); gain1.connect(audioCtx.destination);
@@ -204,7 +208,7 @@
             let osc2 = audioCtx.createOscillator();
             let gain2 = audioCtx.createGain();
             osc2.type = 'square';
-            osc2.frequency.setValueAtTime(1400, agora + 0.18);
+            osc2.frequency.setValueAtTime(freq, agora + 0.18);
             gain2.gain.setValueAtTime(0.3, agora + 0.18);
             gain2.gain.exponentialRampToValueAtTime(0.01, agora + 0.35);
             osc2.connect(gain2); gain2.connect(audioCtx.destination);
@@ -216,12 +220,12 @@
 
     function iniciarAlarmeSonoro(cliente, ganho, idPedido) {
         if (!audioInterval) {
-            tocarAlarmeAgitado();
-            audioInterval = setInterval(tocarAlarmeAgitado, 1200);
+            tocarAlarmeAgitado(1400);
+            audioInterval = setInterval(() => tocarAlarmeAgitado(1400), 1200);
         }
         if (ultimoPedidoNotificado !== idPedido) {
             ultimoPedidoNotificado = idPedido;
-            dispararNotificacaoNativa(cliente, ganho.toFixed(2));
+            dispararNotificacaoNativa("🚨 Nova Entrega Disponível!", `Cliente: ${cliente} | Ganho: R$ ${ganho}`);
         }
     }
 
@@ -236,7 +240,6 @@
     async function atualizarPainelMotoboy() {
         if (!motoboyLogado) return;
 
-        // Se o motoboy estiver digitando em algum campo, pausa a atualização para não fechar o teclado
         const activeInput = document.activeElement;
         if (activeInput && activeInput.tagName === 'INPUT') {
             return;
@@ -277,16 +280,28 @@
             } else if ((p.status === 'Aguardando Chegada ao Restaurante' || p.status === 'Motoboy Chegou no Restaurante' || p.status === 'Produto Pronto para Coleta') && p.motoboyId === motoboyLogado.id) {
                 
                 let statusTexto = "VÁ AO RESTAURANTE";
-                if (p.status === 'Motoboy Chegou no Restaurante') statusTexto = "AGUARDANDO PRODUTO FICAR PRONTO";
-                if (p.status === 'Produto Pronto para Coleta') statusTexto = "PRODUTO PRONTO NO BALCÃO!";
+                let cardClass = "card";
+
+                if (p.status === 'Motoboy Chegou no Restaurante') {
+                    statusTexto = "AGUARDANDO O PRODUTO FICAR PRONTO";
+                } else if (p.status === 'Produto Pronto para Coleta') {
+                    statusTexto = "📦 PRODUTO PRONTO NO BALCÃO!";
+                    cardClass = "card card-pronto"; // Fica verde e piscando
+
+                    // Dispara toque sonoro exclusivo de produto pronto uma única vez por pedido
+                    if (ultimoPedidoProntoNotificado !== p.id) {
+                        ultimoPedidoProntoNotificado = p.id;
+                        tocarAlarmeAgitado(800); // Som diferente
+                        dispararNotificacaoNativa("🟢 Pedido Pronto!", `O pedido #${p.id} de ${p.cliente} já está pronto para coleta!`);
+                    }
+                }
 
                 htmlMotoboy += `
-                    <div class="card">
-                        <span class="badge" style="background:#ff9800">${statusTexto}</span>
+                    <div class="${cardClass}">
+                        <span class="badge" style="background:${p.status === 'Produto Pronto para Coleta' ? '#4CAF50' : '#ff9800'}">${statusTexto}</span>
                         <p><strong>Pedido #${p.id}</strong> - Cliente: <strong style="color:#ffcc00;">${p.cliente}</strong></p>
                         <p>📍 <strong>Retirada:</strong> ${p.retirada.endereco}</p>
                         
-                        <!-- BOTÃO DE ROTA DO GOOGLE MAPS PARA O RESTAURANTE -->
                         <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.retirada.endereco)}" target="_blank" class="btn-rota">
                             🗺️ Abrir Rota para o Restaurante (Google Maps)
                         </a>
@@ -309,7 +324,6 @@
                         <p>👤 <strong>Cliente:</strong> <span style="color:#4CAF50; font-size: 1.1rem;">${p.cliente}</span></p>
                         <p>📍 <strong>Destino:</strong> ${p.entrega.enderecoCliente}</p>
                         
-                        <!-- BOTÃO DE ROTA DO GOOGLE MAPS PARA O CLIENTE -->
                         <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.entrega.enderecoCliente)}" target="_blank" class="btn-rota">
                             🗺️ Abrir Rota para o Cliente (Google Maps)
                         </a>
