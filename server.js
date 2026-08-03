@@ -63,7 +63,8 @@ app.get('/restaurante/pedidos', (req, res) => {
         id: p.id,
         cliente: p.cliente,
         status: p.status,
-        codigoColetaParaValidar: p.codigoColeta
+        codigoColetaParaValidar: p.codigoColeta,
+        codigoEntregaParaValidar: p.codigoEntrega // Vírgula adicionada corretamente aqui
     }));
     res.json(pedidosRestaurante);
 });
