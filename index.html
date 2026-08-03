@@ -19,7 +19,6 @@
         .status-on { background-color: #4CAF50; color: white; box-shadow: 0 0 10px rgba(76,175,80,0.4); }
         .status-off { background-color: #f44336; color: white; box-shadow: 0 0 10px rgba(244,67,54,0.4); }
         
-        /* Estilo do aviso de bloqueio */
         #aviso-bloqueio {
             display: none;
             background: #2c1a1a;
@@ -33,7 +32,7 @@
             font-size: 1.1rem;
         }
 
-        #mapa-container { width: 100%; height: 220px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #444; display: none; }
+        #mapa-container { width: 100%; height: 240px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #444; display: none; }
 
         .card { background: #2d2d2d; border: 1px solid #444; padding: 15px; margin-bottom: 12px; border-radius: 8px; }
         .card-alerta { border: 2px solid #ff5252; background: #2c1a1a; animation: piscar 0.8s infinite alternate; }
@@ -87,7 +86,6 @@
     <div id="tela-app" style="display: none;">
         <p id="saudacao-motoboy" style="text-align: center; color: #4CAF50; font-weight: bold; margin-bottom: 10px;"></p>
 
-        <!-- AVISO DE BLOQUEIO -->
         <div id="aviso-bloqueio">
             Temporariamente bloqueado, aguarde... <br>
             <span style="font-size: 2rem;">⏱️ <span id="contador-bloqueio">05:00</span></span>
@@ -97,6 +95,7 @@
             <button id="btn-toggle-status" class="btn-status-toggle status-off" onclick="alternarStatusOnline()">🔴 OFFLINE (Toque para Conectar)</button>
         </div>
 
+        <!-- MAPA COM A MOTINHA NO CENTRO -->
         <div id="mapa-container"></div>
 
         <div class="painel-saldo">
@@ -136,7 +135,6 @@
     let watchId = null;
     let map = null;
     let markerMotoboy = null;
-    
     let timerBloqueio = null;
 
     function formatarTempo(segundos) {
@@ -155,7 +153,6 @@
         btnToggle.style.opacity = '0.5';
         
         let tempoRestante = segundosIniciais;
-        
         if (timerBloqueio) clearInterval(timerBloqueio);
         
         timerBloqueio = setInterval(() => {
@@ -188,14 +185,20 @@
     }
 
     function inicializarMapa() {
-        if (map) return;
-        map = L.map('mapa-container').setView([-15.7801, -47.9292], 15);
+        if (map) {
+            map.invalidateSize();
+            return;
+        }
+        
+        map = L.map('mapa-container').setView([-15.7801, -47.9292], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        setTimeout(() => { map.invalidateSize(); }, 300);
+        setTimeout(() => { 
+            map.invalidateSize(); 
+        }, 400);
     }
 
     function atualizarPosicaoNoMapa(lat, lon) {
@@ -203,7 +206,7 @@
         const coords = [lat, lon];
         if (!markerMotoboy) {
             const iconeMoto = L.divIcon({
-                html: '🛵',
+                html: '<div style="font-size: 24px; text-shadow: 0 0 3px #fff;">🛵</div>',
                 className: 'custom-motoboy-icon',
                 iconSize: [30, 30],
                 iconAnchor: [15, 15]
@@ -212,24 +215,23 @@
         } else {
             markerMotoboy.setLatLng(coords);
         }
-        map.setView(coords, 16);
+        map.setView(coords, 17);
     }
 
     async function alternarStatusOnline() {
         const btn = document.getElementById('btn-toggle-status');
+        const novoStatus = !estaOnline;
         
-        // Tenta mudar o status no servidor primeiro
         try {
             const res = await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/status-conexao`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ online: !estaOnline })
+                body: JSON.stringify({ online: novoStatus })
             });
             
             const json = await res.json();
             
             if (res.status === 403) {
-                // Está bloqueado! 
                 estaOnline = false;
                 btn.className = "btn-status-toggle status-off";
                 btn.innerHTML = "🔴 OFFLINE (Toque para Conectar)";
@@ -239,7 +241,7 @@
             }
 
             if (res.ok) {
-                estaOnline = !estaOnline;
+                estaOnline = novoStatus;
                 if (estaOnline) {
                     btn.className = "btn-status-toggle status-on";
                     btn.innerHTML = "🟢 ONLINE (Pronto para entregas)";
@@ -259,6 +261,15 @@
 
     function iniciarGeolocalizacao() {
         if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    atualizarPosicaoNoMapa(pos.coords.latitude, pos.coords.longitude);
+                    enviarCoordenadasServidor(pos.coords.latitude, pos.coords.longitude);
+                },
+                (err) => console.log("Erro GPS inicial:", err),
+                { enableHighAccuracy: true }
+            );
+
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
                     const lat = position.coords.latitude;
@@ -266,8 +277,8 @@
                     atualizarPosicaoNoMapa(lat, lon);
                     enviarCoordenadasServidor(lat, lon);
                 },
-                (error) => { console.log("Erro GPS:", error); },
-                { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
+                (error) => { console.log("Erro GPS watch:", error); },
+                { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
             );
         } else {
             alert("Geolocalização não é suportada.");

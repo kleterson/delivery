@@ -27,7 +27,6 @@
 <div class="container">
     <h1>🍔 Painel do Restaurante (Admin)</h1>
 
-    <!-- GERENCIAR MOTOBOYS -->
     <div class="secao">
         <h2>🛵 Motoboys Cadastrados</h2>
         <div style="overflow-x: auto;">
@@ -48,7 +47,6 @@
         </div>
     </div>
 
-    <!-- CADASTRAR NOVO PEDIDO -->
     <div class="secao">
         <h2>📝 Cadastrar Novo Pedido</h2>
         <input type="text" id="cliente" placeholder="Nome do Cliente">
@@ -57,7 +55,6 @@
         <button onclick="cadastrarPedido()">Lançar Pedido para Entrega</button>
     </div>
 
-    <!-- LISTA DE PEDIDOS -->
     <div class="secao">
         <h2>📦 Acompanhamento de Pedidos</h2>
         <div id="lista-pedidos">Carregando pedidos...</div>
@@ -103,15 +100,19 @@
     }
 
     async function alterarStatusMotoboy(id, ativo) {
-        const res = await fetch(`${API_URL}/admin/motoboys/${id}/status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ativo })
-        });
-        if (res.ok) {
-            carregarMotoboys();
-        } else {
-            alert("Erro ao alterar status do motoboy.");
+        try {
+            const res = await fetch(`${API_URL}/admin/motoboys/${id}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ativo })
+            });
+            if (res.ok) {
+                carregarMotoboys();
+            } else {
+                alert("Erro ao alterar status do motoboy.");
+            }
+        } catch(e) {
+            alert("Erro de conexão ao alterar status.");
         }
     }
 
