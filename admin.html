@@ -250,7 +250,10 @@
         if (pedidos.length === 0) {
             html = '<p style="color:#777; text-align:center;">Nenhum pedido no momento.</p>';
         } else {
-            pedidos.forEach(p => {
+            // Inverte a lista para exibir os pedidos mais recentes no topo
+            const pedidosInvertidos = [...pedidos].reverse();
+
+            pedidosInvertidos.forEach(p => {
                 if (p.status === 'Entregue') {
                     entreguesCount++;
                 } else if (!p.status.includes('Cancelado')) {
