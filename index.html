@@ -12,17 +12,17 @@
         
         .container { width: 100%; max-width: 450px; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); position: relative; overflow: hidden; }
         
-        /* Cabeçalho com o Menu Hambúrguer */
-        .header-topo { display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 20px; }
-        .btn-menu { position: absolute; left: 0; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; padding: 0; }
+        /* Cabeçalho centralizado perfeitamente */
+        .header-topo { display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 20px; height: 35px; }
+        .btn-menu { position: absolute; left: 0; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; padding: 0; display: flex; align-items: center; }
         h1 { font-size: 1.3rem; color: #ff5252; margin: 0; text-align: center; }
 
-        /* Gaveta do Menu Lateral (Sidebar) */
+        /* Gaveta do Menu Lateral (Sidebar) com largura de 1/4 ou compacta (280px) */
         .sidebar {
             position: absolute;
             top: 0;
             left: -100%;
-            width: 75%; /* Ocupa um pouco mais da metade da tela */
+            width: 280px; 
             height: 100%;
             background: #252525;
             z-index: 1000;
@@ -201,7 +201,6 @@
             document.getElementById('tela-login').classList.add('oculto');
             document.getElementById('tela-principal').classList.remove('oculto');
             
-            // Atualiza os nomes na tela e no menu lateral
             document.getElementById('saudacao-usuario').innerText = `Olá, ${motoboyLogado.nome} 🛵`;
             document.getElementById('menu-nome-motoboy').innerText = motoboyLogado.nome;
             
@@ -313,7 +312,6 @@
 
         if (historicoHtml) {
             document.getElementById('lista-historico-corridas').innerHTML = historicoHtml;
-            // Renderiza mini mapas das entregas concluídas
             setTimeout(() => {
                 pedidos.forEach(p => {
                     if (p.motoboyId === motoboyLogado.id && p.status === 'Entregue') {
