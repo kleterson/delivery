@@ -140,7 +140,6 @@
             border-radius: 4px;
             font-size: 0.8rem;
             font-weight: bold;
-            background: #333;
             color: #fff;
         }
     </style>
@@ -232,11 +231,23 @@
                 html = '<p style="color:#777; text-align:center;">Nenhum pedido no momento.</p>';
             } else {
                 pedidos.slice().reverse().forEach(p => {
+                    // Lógica de cores do status
+                    let corStatus = '#333'; // Padrão cinza
+                    let statusLower = (p.status || '').toLowerCase();
+
+                    if (statusLower.includes('entregue')) {
+                        corStatus = '#4CAF50'; // Verde
+                    } else if (statusLower.includes('trânsito') || statusLower.includes('coleta') || statusLower.includes('aguardando') || statusLower.includes('pronto')) {
+                        corStatus = '#FF9800'; // Amarelo/Laranja
+                    } else if (statusLower.includes('cancelado') || statusLower.includes('recusado')) {
+                        corStatus = '#f44336'; // Vermelho
+                    }
+
                     html += `
                         <div class="pedido-item">
                             <p><strong>Pedido #${p.id}</strong> - ${p.cliente}</p>
                             <p>📍 <strong>Endereço de Entrega:</strong> ${p.enderecoEntrega}</p>
-                            <p>Status: <span class="status-badge">${p.status}</span></p>
+                            <p>Status: <span class="status-badge" style="background-color: ${corStatus};">${p.status}</span></p>
                             <p>🛵 Motoboy: ${p.motoboyNome || 'Aguardando aceitar'}</p>
                             <p>🔑 Código de Coleta: <span class="codigo-destaque">${p.codigoColetaParaValidar || '---'}</span></p>
                             <p>🔒 Código do Cliente: <span class="codigo-destaque" style="color: #4CAF50;">${p.codigoEntregaParaValidar || '---'}</span></p>
