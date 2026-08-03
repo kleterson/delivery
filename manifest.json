@@ -1,16 +1,13 @@
 {
-  "name": "App do Motoboy",
-  "short_name": "Motoboy",
-  "description": "Aplicativo de entregas para motoboys",
-  "start_url": "/",
+  "background_color": "rgb(18, 18, 18)",
+  "dir": "ltr",
   "display": "standalone",
-  "background_color": "#121212",
-  "theme_color": "#121212",
-  "icons": [
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/3076/3076136.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
+  "name": "App do Motoboy",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "motoboy",
+  "start_url": "/",
+  "theme_color": "rgb(18, 18, 18)",
+  "id": "/",
+  "description": "App de entregas para motoboys"
 }
