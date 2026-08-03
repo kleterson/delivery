@@ -5,20 +5,27 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Se os arquivos estiverem na raiz do projeto (junto com o server.js):
+// Servir arquivos estáticos da raiz
 app.use(express.static(__dirname));
 
 let pedidos = [];
 const enderecoRestaurante = "Av. Principal, 100 - Centro";
 const gerarCodigo = () => Math.floor(1000 + Math.random() * 9000).toString();
 
+// NOVA REGRA DE FRETE
 function calcularFrete(distanciaKm) {
-    const valorCalculado = distanciaKm * 1.00;
-    const taxaMinima = 7.50;
-    return Math.max(valorCalculado, taxaMinima);
+    const taxaMinima = 5.00;
+    
+    // Se a distância for maior que 4 km, calcula R$ 1,60 por km. Caso contrário, aplica o mínimo de R$ 5,00.
+    if (distanciaKm > 4) {
+        const valorCalculado = distanciaKm * 1.60;
+        return valorCalculado;
+    } else {
+        return taxaMinima;
+    }
 }
 
-// Rota raiz redirecionando ou mostrando opções
+// Rota raiz para exibir as opções de acesso
 app.get('/', (req, res) => {
     res.send(`
         <div style="font-family: Arial; text-align: center; margin-top: 50px; background: #121212; color: #fff; padding: 40px; border-radius: 10px; max-width: 400px; margin-left: auto; margin-right: auto;">
@@ -31,7 +38,7 @@ app.get('/', (req, res) => {
     `);
 });
 
-// 1. Restaurante visualiza os pedidos
+// Restaurante visualiza os pedidos
 app.get('/restaurante/pedidos', (req, res) => {
     const pedidosRestaurante = pedidos.map(p => ({
         id: p.id,
@@ -50,13 +57,13 @@ app.post('/pedidos', (req, res) => {
         return res.status(400).json({ erro: "Preencha todos os campos." });
     }
 
-    const taxaEntrega = calcularFrete(distanciaKm);
+    const taxaEntrega = calcularFrete(parseFloat(distanciaKm));
 
     const novoPedido = {
         id: pedidos.length + 1,
         cliente,
         retirada: { local: "Restaurante Sabor & Arte", endereco: enderecoRestaurante },
-        entrega: { enderecoCliente: enderecoEntrega, distanciaKm: distanciaKm },
+        entrega: { enderecoCliente: enderecoEntrega, distanciaKm: parseFloat(distanciaKm) },
         financeiro: { taxaEntrega: parseFloat(taxaEntrega.toFixed(2)) },
         status: "Disponível",
         motoboyAceito: null,
