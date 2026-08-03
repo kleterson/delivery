@@ -12,12 +12,10 @@
         
         .container { width: 100%; max-width: 450px; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); position: relative; overflow: hidden; }
         
-        /* Cabeçalho centralizado perfeitamente */
         .header-topo { display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 20px; height: 35px; }
         .btn-menu { position: absolute; left: 0; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; padding: 0; display: flex; align-items: center; }
         h1 { font-size: 1.3rem; color: #ff5252; margin: 0; text-align: center; }
 
-        /* Gaveta do Menu Lateral (Sidebar) com largura de 1/4 ou compacta (280px) */
         .sidebar {
             position: absolute;
             top: 0;
@@ -37,7 +35,6 @@
         .sidebar-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 15px; }
         .btn-fechar { background: none; border: none; color: #ff5252; font-size: 1.5rem; cursor: pointer; }
 
-        /* Estilos gerais de botões e cards */
         button, .btn { padding: 12px; margin: 8px 0; width: 100%; border-radius: 6px; border: none; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; display: block; box-sizing: border-box; }
         .btn-vermelho { background-color: #ff5252; color: white; }
         .btn-verde { background-color: #4CAF50; color: white; }
@@ -53,7 +50,6 @@
         .mini-mapa { width: 100%; height: 100px; border-radius: 6px; margin-top: 8px; background: #333; }
 
         #map { width: 100%; height: 200px; border-radius: 8px; margin: 15px 0; border: 1px solid #444; }
-        
         .oculto { display: none !important; }
     </style>
 </head>
@@ -83,7 +79,7 @@
     <!-- TELA PRINCIPAL DO APLICATIVO -->
     <div id="tela-principal" class="oculto">
         
-        <!-- MENU LATERAL (GAVETA / SIDEBAR) -->
+        <!-- MENU LATERAL -->
         <div id="sidebar" class="sidebar">
             <div class="sidebar-header">
                 <h3 style="color:#ff5252; margin:0;">Menu</h3>
@@ -112,7 +108,7 @@
         <!-- MAPA GPS -->
         <div id="map"></div>
 
-        <!-- SALDO ACUMULADO PRINCIPAL -->
+        <!-- SALDO ACUMULADO -->
         <div style="background: #2d2d2d; border: 1px solid #444; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
             <p style="margin: 0; font-size: 0.85rem; color: #aaa;">SEU SALDO ACUMULADO</p>
             <h2 id="saldo-acumulado" style="margin: 5px 0 0 0; color: #4CAF50;">R$ 0.00</h2>
@@ -120,19 +116,19 @@
 
         <button class="btn-cinza" onclick="abrirHistorico()">Ver Entregas Realizadas</button>
         
+        <!-- ÁREA ONDE APARECEM OS PEDIDOS / PEDIDO ATIVO -->
         <div id="area-pedidos" style="margin-top: 15px;">
             <p style="text-align: center; color: #777;">Procurando pedidos disponíveis...</p>
         </div>
     </div>
 
-    <!-- TELA DE HISTÓRICO E SALDOS (PAINEL) -->
+    <!-- TELA DE HISTÓRICO E SALDOS -->
     <div id="tela-historico" class="oculto">
         <div style="display:flex; align-items:center; margin-bottom:15px;">
             <button class="btn-cinza" style="width:auto; padding:6px 12px; margin:0;" onclick="voltarPainelPrincipal()">⬅ Voltar</button>
             <h2 style="margin:0 auto; color:#ff5252; font-size:1.1rem;">Resumo & Histórico</h2>
         </div>
 
-        <!-- Saldos -->
         <div class="card-saldo">
             <h4>SALDO DIÁRIO (Hoje)</h4>
             <p id="resumo-diario">R$ 0.00</p>
@@ -252,11 +248,15 @@
             btn.className = "btn btn-vermelho";
             btn.innerText = "🔴 OFFLINE (Toque para Conectar)";
         }
-        await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/status-conexao`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ online })
-        });
+        try {
+            await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/status-conexao`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ online })
+            });
+        } catch (e) {
+            console.error("Erro ao alterar conexão", e);
+        }
     }
 
     async function buscarPedidos() {
@@ -264,12 +264,14 @@
         const res = await fetch(`${API_URL}/pedidos`);
         const pedidos = await res.json();
         
-        let html = '';
+        let htmlDisponiveis = '';
         let saldoTotal = 0;
         let historicoHtml = '';
         let diario = 0, semana = 0, mes = 0;
+        let temPedidoAtivo = false;
 
         pedidos.forEach(p => {
+            // Se o pedido pertence a este motoboy logado
             if (p.motoboyId === motoboyLogado.id) {
                 if (p.status === 'Entregue') {
                     saldoTotal += (p.financeiro?.taxaEntrega || 10.00);
@@ -291,14 +293,53 @@
                             <div id="mini-mapa-${p.id}" class="mini-mapa"></div>
                         </div>
                     `;
+                } else {
+                    // Pedido em andamento do motoboy
+                    temPedidoAtivo = true;
+                    const valorEntrega = (p.financeiro?.taxaEntrega || 10.00).toFixed(2);
+                    
+                    htmlDisponiveis += `
+                        <div style="background:#2d2d2d; padding:15px; border-radius:8px; border:1px solid #4CAF50; margin-bottom:10px;">
+                            <p style="margin:0 0 5px 0; color:#4CAF50; font-weight:bold;">📦 Pedido Ativo #${p.id}</p>
+                            <p style="margin:0 0 5px 0;"><strong>Cliente:</strong> ${p.cliente}</p>
+                            <p style="margin:0 0 5px 0; font-size:0.85rem; color:#aaa;">📍 ${p.entrega.enderecoCliente}</p>
+                            <p style="margin:0 0 10px 0; font-size:0.9rem;">Status: <strong>${p.status}</strong></p>
+                            <span class="valor-verde" style="display:block; margin-bottom:10px;">R$ ${valorEntrega}</span>
+
+                            ${p.status === 'Aguardando Chegada ao Restaurante' ? `
+                                <button class="btn-verde" onclick="chegouRestaurante(${p.id})">Cheguei no Restaurante</button>
+                                <button class="btn-vermelho" onclick="recusarPedido(${p.id})">Recusar Corrida</button>
+                            ` : ''}
+
+                            ${p.status === 'Motoboy Chegou no Restaurante' ? `
+                                <p style="color:#ff9800; font-size:0.85rem; text-align:center;">Aguardando o restaurante liberar o produto...</p>
+                                <button class="btn-vermelho" onclick="recusarPedido(${p.id})">Recusar Corrida</button>
+                            ` : ''}
+
+                            ${p.status === 'Produto Pronto para Coleta' ? `
+                                <p style="font-size:0.85rem; color:#4CAF50; margin-bottom:5px;">Insira o código fornecido pelo restaurante:</p>
+                                <input type="text" id="input-coleta-${p.id}" placeholder="Código de Coleta (4 dígitos)" style="width:100%; padding:10px; background:#1e1e1e; border:1px solid #444; color:#fff; border-radius:5px; margin-bottom:8px;">
+                                <button class="btn-verde" onclick="coletarPedido(${p.id})">Confirmar Coleta (Iniciar Rota)</button>
+                            ` : ''}
+
+                            ${p.status === 'Em Trânsito' ? `
+                                <p style="font-size:0.85rem; color:#ffcc00; margin-bottom:5px;">Insira o código de entrega do cliente:</p>
+                                <input type="text" id="input-entrega-${p.id}" placeholder="Código de Entrega (4 dígitos)" style="width:100%; padding:10px; background:#1e1e1e; border:1px solid #444; color:#fff; border-radius:5px; margin-bottom:8px;">
+                                <button class="btn-verde" onclick="entregarPedido(${p.id})">Finalizar Entrega</button>
+                            ` : ''}
+                        </div>
+                    `;
                 }
             }
 
-            if (p.status === 'Disponível' && online) {
-                html += `
+            // Se o pedido estiver disponível e o motoboy estiver online (e sem pedido ativo)
+            if (p.status === 'Disponível' && online && !temPedidoAtivo) {
+                const valorEntrega = (p.financeiro?.taxaEntrega || 10.00).toFixed(2);
+                htmlDisponiveis += `
                     <div style="background:#2d2d2d; padding:12px; border-radius:8px; border:1px solid #444; margin-bottom:10px;">
-                        <p style="margin:0 0 8px 0;"><strong>Cliente:</strong> ${p.cliente}</p>
-                        <p style="margin:0 0 8px 0; font-size:0.85rem; color:#aaa;">📍 ${p.entrega.enderecoCliente}</p>
+                        <p style="margin:0 0 5px 0;"><strong>Cliente:</strong> ${p.cliente}</p>
+                        <p style="margin:0 0 5px 0; font-size:0.85rem; color:#aaa;">📍 ${p.entrega.enderecoCliente}</p>
+                        <span class="valor-verde" style="display:block; margin-bottom:8px;">R$ ${valorEntrega}</span>
                         <button class="btn-verde" onclick="aceitarPedido(${p.id})">Aceitar Corrida</button>
                     </div>
                 `;
@@ -326,13 +367,13 @@
             }, 100);
         }
 
-        if (!html && online) {
-            html = '<p style="text-align: center; color: #777;">Aguardando novas entregas...</p>';
-        } else if (!online) {
-            html = '<p style="text-align: center; color: #777;">Você está offline. Fique online para ver pedidos.</p>';
+        if (!htmlDisponiveis && online && !temPedidoAtivo) {
+            htmlDisponiveis = '<p style="text-align: center; color: #777;">Aguardando novas entregas...</p>';
+        } else if (!online && !temPedidoAtivo) {
+            htmlDisponiveis = '<p style="text-align: center; color: #777;">Você está offline. Fique online para ver pedidos.</p>';
         }
 
-        document.getElementById('area-pedidos').innerHTML = html;
+        document.getElementById('area-pedidos').innerHTML = htmlDisponiveis;
     }
 
     async function aceitarPedido(id) {
@@ -342,10 +383,53 @@
             body: JSON.stringify({ motoboyId: motoboyLogado.id, motoboyNome: motoboyLogado.nome })
         });
         if (res.ok) {
-            alert("Pedido aceito!");
             buscarPedidos();
         } else {
             const json = await res.json();
+            alert(json.erro);
+        }
+    }
+
+    async function chegouRestaurante(id) {
+        const res = await fetch(`${API_URL}/pedidos/${id}/chegou-restaurante`, { method: 'POST' });
+        if (res.ok) buscarPedidos();
+    }
+
+    async function recusarPedido(id) {
+        const res = await fetch(`${API_URL}/pedidos/${id}/recusar`, { method: 'POST' });
+        if (res.ok) {
+            alert("Pedido recusado.");
+            buscarPedidos();
+        }
+    }
+
+    async function coletarPedido(id) {
+        const codigoColeta = document.getElementById(`input-coleta-${id}`).value;
+        const res = await fetch(`${API_URL}/pedidos/${id}/coletar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ codigoColeta })
+        });
+        const json = await res.json();
+        if (res.ok) {
+            buscarPedidos();
+        } else {
+            alert(json.erro);
+        }
+    }
+
+    async function entregarPedido(id) {
+        const codigoEntrega = document.getElementById(`input-entrega-${id}`).value;
+        const res = await fetch(`${API_URL}/pedidos/${id}/entregar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ codigoEntrega })
+        });
+        const json = await res.json();
+        if (res.ok) {
+            alert("Entrega finalizada com sucesso!");
+            buscarPedidos();
+        } else {
             alert(json.erro);
         }
     }

@@ -86,9 +86,9 @@ app.post('/admin/motoboys/:id/status', (req, res) => {
     if (!ativo) {
         motoboy.online = false;
         motoboy.rotaAtiva = false;
-        motoboy.tempoBloqueioAte = Date.now() + 300000; // 5 minutos de bloqueio temporário
+        motoboy.tempoBloqueioAte = Date.now() + 300000; 
     } else {
-        motoboy.tempoBloqueioAte = 0; // Zera o tempo se o admin desbloquear manualmente
+        motoboy.tempoBloqueioAte = 0; 
     }
     res.json({ mensagem: "Status alterado com sucesso!", motoboy });
 });
@@ -101,7 +101,6 @@ app.post('/motoboys/:id/status-conexao', (req, res) => {
     if (!motoboy) return res.status(404).json({ erro: "Motoboy não encontrado." });
 
     const agora = Date.now();
-
     if (!motoboy.ativo || agora < motoboy.tempoBloqueioAte) {
         motoboy.online = false;
         const tempoRestante = Math.ceil((motoboy.tempoBloqueioAte - agora) / 1000);
@@ -115,32 +114,12 @@ app.post('/motoboys/:id/status-conexao', (req, res) => {
     res.json({ mensagem: "Status atualizado", online: motoboy.online });
 });
 
-// MOTOBOY: Receber coordenadas do GPS
-app.post('/motoboys/:id/localizacao', (req, res) => {
-    const id = parseInt(req.params.id);
-    const { online } = req.body;
-    const motoboy = motoboysCadastrados.find(m => m.id === id);
-    if (!motoboy) return res.status(404).json({ erro: "Motoboy não encontrado." });
-
-    const agora = Date.now();
-    if (!motoboy.ativo || agora < motoboy.tempoBloqueioAte) {
-        motoboy.online = false;
-        return res.status(403).json({ erro: "Conta bloqueada ou em período de espera." });
-    }
-
-    if (online !== undefined) {
-        motoboy.online = online;
-    }
-    res.json({ mensagem: "Localização atualizada" });
-});
-
 app.get('/restaurante/pedidos', (req, res) => {
     const pedidosRestaurante = pedidos.map(p => ({
         id: p.id,
         cliente: p.cliente,
         enderecoEntrega: p.entrega.enderecoCliente,
         status: p.status,
-        // Garante que o nome do motoboy que cancelou vá corretamente para o frontend
         motoboyNome: p.status === 'Cancelado pelo Motoboy' ? p.motoboyNomeCancelou : p.motoboyNome,
         codigoColetaParaValidar: p.codigoColeta,
         codigoEntregaParaValidar: p.codigoEntrega
@@ -199,15 +178,6 @@ app.post('/pedidos/:id/chegou-restaurante', (req, res) => {
     res.json({ mensagem: "Chegada notificada ao restaurante!", pedido });
 });
 
-app.post('/pedidos/:id/produto-pronto', (req, res) => {
-    const pedidoId = parseInt(req.params.id);
-    const pedido = pedidos.find(p => p.id === pedidoId);
-    if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
-
-    pedido.status = "Produto Pronto para Coleta";
-    res.json({ mensagem: "Aviso enviado ao motoboy!", pedido });
-});
-
 app.post('/pedidos/:id/recusar', (req, res) => {
     const pedidoId = parseInt(req.params.id);
     const pedido = pedidos.find(p => p.id === pedidoId);
@@ -220,13 +190,13 @@ app.post('/pedidos/:id/recusar', (req, res) => {
         const motoboy = motoboysCadastrados.find(m => m.id === idMotoboyCancelou);
         if (motoboy) {
             motoboy.online = false;
-            motoboy.tempoBloqueioAte = Date.now() + 300000; // Bloqueio automático de 5 minutos
+            motoboy.tempoBloqueioAte = Date.now() + 300000; 
         }
     }
 
     pedido.status = "Cancelado pelo Motoboy";
     pedido.motoboyId = null;
-    pedido.motoboyNome = null; // Limpa para ficar disponível para outro
+    pedido.motoboyNome = null; 
     pedido.motoboyNomeCancelou = nomeMotoboyCancelou || "Desconhecido"; 
     
     res.json({ mensagem: "Entrega recusada e motoboy bloqueado temporariamente.", pedido });
