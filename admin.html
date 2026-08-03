@@ -5,20 +5,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel do Restaurante (Admin)</title>
     <style>
+        * { box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
-        .container { max-width: 900px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        h1, h2 { color: #ff5252; text-align: center; }
-        .secao { margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 20px; }
-        input, button, select { padding: 12px; margin: 6px 0; width: 100%; box-sizing: border-box; border-radius: 6px; border: none; font-size: 1rem; }
-        input, select { background: #333; color: white; border: 1px solid #555; }
+        
+        .container { max-width: 1300px; margin: auto; }
+        h1 { color: #ff5252; text-align: center; margin-bottom: 25px; }
+        
+        /* Layout de Tela Dividida (Grid) */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .coluna {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .secao { 
+            background: #1e1e1e; 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+        }
+
+        h2 { color: #ff5252; font-size: 1.2rem; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        
+        input, button, select { padding: 10px 12px; margin: 6px 0; width: 100%; border-radius: 6px; border: none; font-size: 0.95rem; }
+        input, select { background: #2d2d2d; color: white; border: 1px solid #444; }
         button { background-color: #ff5252; color: white; cursor: pointer; font-weight: bold; }
         button:hover { opacity: 0.9; }
+        
         .card { background: #2d2d2d; border: 1px solid #444; padding: 15px; margin-bottom: 12px; border-radius: 8px; }
-        .btn-acao { background-color: #4CAF50; width: auto; padding: 8px 15px; margin-right: 5px; font-size: 0.9rem; }
-        .btn-bloquear { background-color: #f44336; width: auto; padding: 8px 15px; font-size: 0.9rem; }
-        .btn-desbloquear { background-color: #2196F3; width: auto; padding: 8px 15px; font-size: 0.9rem; }
+        .card p { margin: 6px 0; }
+        
+        .btn-acao { background-color: #4CAF50; width: auto; padding: 8px 15px; margin-right: 5px; font-size: 0.85rem; }
+        .btn-bloquear { background-color: #f44336; width: auto; padding: 6px 12px; font-size: 0.8rem; }
+        .btn-desbloquear { background-color: #2196F3; width: auto; padding: 6px 12px; font-size: 0.8rem; }
+        
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #444; font-size: 0.95rem; }
+        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #444; font-size: 0.85rem; }
         th { background-color: #252525; color: #ff5252; }
     </style>
 </head>
@@ -27,37 +62,44 @@
 <div class="container">
     <h1>🍔 Painel do Restaurante (Admin)</h1>
 
-    <div class="secao">
-        <h2>🛵 Motoboys Cadastrados</h2>
-        <div style="overflow-x: auto;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nome</th>
-                        <th>Usuário</th>
-                        <th>Conexão</th>
-                        <th>Status da Conta</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="tabela-motoboys">
-                    <tr><td colspan="5" style="text-align:center; color:#777;">Carregando motoboys...</td></tr>
-                </tbody>
-            </table>
+    <div class="dashboard-grid">
+        <!-- COLUNA ESQUERDA: Motoboys e Cadastros -->
+        <div class="coluna">
+            <div class="secao">
+                <h2>📝 Cadastrar Novo Pedido</h2>
+                <input type="text" id="cliente" placeholder="Nome do Cliente">
+                <input type="text" id="enderecoEntrega" placeholder="Endereço de Entrega (Ex: Rua das Flores, 50)">
+                <input type="number" id="distanciaKm" placeholder="Distância em KM (Ex: 3.5)">
+                <button onclick="cadastrarPedido()">Lançar Pedido para Entrega</button>
+            </div>
+
+            <div class="secao">
+                <h2>🛵 Motoboys Cadastrados</h2>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Conexão</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-motoboys">
+                            <tr><td colspan="4" style="text-align:center; color:#777;">Carregando motoboys...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <div class="secao">
-        <h2>📝 Cadastrar Novo Pedido</h2>
-        <input type="text" id="cliente" placeholder="Nome do Cliente">
-        <input type="text" id="enderecoEntrega" placeholder="Endereço de Entrega (Ex: Rua das Flores, 50)">
-        <input type="number" id="distanciaKm" placeholder="Distância em KM (Ex: 3.5)">
-        <button onclick="cadastrarPedido()">Lançar Pedido para Entrega</button>
-    </div>
-
-    <div class="secao">
-        <h2>📦 Acompanhamento de Pedidos</h2>
-        <div id="lista-pedidos">Carregando pedidos...</div>
+        <!-- COLUNA DIREITA: Acompanhamento de Pedidos -->
+        <div class="coluna">
+            <div class="secao" style="flex: 1;">
+                <h2>📦 Acompanhamento de Pedidos</h2>
+                <div id="lista-pedidos">Carregando pedidos...</div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -79,7 +121,7 @@
             const agora = Date.now();
 
             if (motoboys.length === 0) {
-                html = '<tr><td colspan="5" style="text-align:center; color:#777;">Nenhum motoboy cadastrado.</td></tr>';
+                html = '<tr><td colspan="4" style="text-align:center; color:#777;">Nenhum motoboy cadastrado.</td></tr>';
             } else {
                 motoboys.forEach(m => {
                     const statusConexao = m.online ? '<span style="color:#4CAF50; font-weight:bold;">🟢 Online</span>' : '<span style="color:#777;">🔴 Offline</span>';
@@ -96,13 +138,12 @@
                     
                     html += `
                         <tr>
-                            <td>${m.nome}</td>
-                            <td>${m.usuario}</td>
+                            <td><strong>${m.nome}</strong></td>
                             <td>${statusConexao}</td>
                             <td>${statusConta}</td>
                             <td>
                                 ${m.ativo && agora >= (m.tempoBloqueioAte || 0) ? 
-                                    `<button class="btn-bloquear" onclick="alterarStatusMotoboy(${m.id}, false)">Bloquear (5 min)</button>` : 
+                                    `<button class="btn-bloquear" onclick="alterarStatusMotoboy(${m.id}, false)">Bloquear</button>` : 
                                     `<button class="btn-desbloquear" onclick="alterarStatusMotoboy(${m.id}, true)">Desbloquear</button>`
                                 }
                             </td>
@@ -145,7 +186,6 @@
         });
         const json = await res.json();
         if (res.ok) {
-            alert("Pedido lançado com sucesso!");
             document.getElementById('cliente').value = '';
             document.getElementById('enderecoEntrega').value = '';
             document.getElementById('distanciaKm').value = '';
@@ -181,16 +221,15 @@
                         <p><strong>Pedido #${p.id}</strong> - Cliente: <strong style="color:#ffcc00;">${p.cliente}</strong></p>
                         <p>📍 <strong>Entrega:</strong> ${p.enderecoEntrega}</p>
                         <p>🛵 <strong>Motoboy:</strong> ${nomeMotoboyExibicao}</p>
-                        <p>📌 <strong>Status Atual:</strong> <span style="color: ${corStatus(p.status)}; font-weight:bold;">${p.status}</span></p>
+                        <p>📌 <strong>Status:</strong> <span style="color: ${corStatus(p.status)}; font-weight:bold;">${p.status}</span></p>
                         
-                        <div style="background:#222; padding: 10px; border-radius: 5px; margin-top: 10px;">
-                            <p style="margin: 0 0 5px 0; font-size: 0.85rem; color: #aaa;">Códigos de Validação:</p>
-                            <span style="background:#333; padding: 4px 8px; border-radius: 4px; font-size: 0.9rem; margin-right: 10px;">🔑 Coleta: <strong>${p.codigoColetaParaValidar}</strong></span>
-                            <span style="background:#333; padding: 4px 8px; border-radius: 4px; font-size: 0.9rem;">🎯 Entrega: <strong>${p.codigoEntregaParaValidar}</strong></span>
+                        <div style="background:#222; padding: 8px; border-radius: 5px; margin-top: 8px; font-size: 0.85rem;">
+                            <span style="margin-right: 15px;">🔑 Coleta: <strong>${p.codigoColetaParaValidar}</strong></span>
+                            <span>🎯 Entrega: <strong>${p.codigoEntregaParaValidar}</strong></span>
                         </div>
 
                         ${p.status === 'Aguardando Chegada ao Restaurante' || p.status === 'Motoboy Chegou no Restaurante' ? `
-                            <button class="btn-acao" style="margin-top: 10px;" onclick="produtoPronto(${p.id})">✅ Produto Pronto no Balcão</button>
+                            <button class="btn-acao" style="margin-top: 8px;" onclick="produtoPronto(${p.id})">✅ Produto Pronto no Balcão</button>
                         ` : ''}
                     </div>
                 `;
@@ -212,7 +251,7 @@
         setInterval(() => {
             carregarMotoboys();
             carregarPedidos();
-        }, 1000); // Atualiza a cada 1 segundo para o cronômetro rodar fluido na tela
+        }, 1000);
         carregarMotoboys();
         carregarPedidos();
     }
