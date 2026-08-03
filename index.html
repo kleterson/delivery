@@ -116,7 +116,7 @@
 
         <button class="btn-cinza" onclick="abrirHistorico()">Ver Entregas Realizadas</button>
         
-        <!-- ÁREA ONDE APARECEM OS PEDIDOS / PEDIDO ATIVO -->
+        <!-- ÁREA ONDE APARECEM OS PEDIDOS -->
         <div id="area-pedidos" style="margin-top: 15px;">
             <p style="text-align: center; color: #777;">Procurando pedidos disponíveis...</p>
         </div>
@@ -268,10 +268,8 @@
         let saldoTotal = 0;
         let historicoHtml = '';
         let diario = 0, semana = 0, mes = 0;
-        let temPedidoAtivo = false;
 
         pedidos.forEach(p => {
-            // Se o pedido pertence a este motoboy logado
             if (p.motoboyId === motoboyLogado.id) {
                 if (p.status === 'Entregue') {
                     saldoTotal += (p.financeiro?.taxaEntrega || 10.00);
@@ -294,36 +292,24 @@
                         </div>
                     `;
                 } else {
-                    // Pedido em andamento do motoboy
-                    temPedidoAtivo = true;
                     const valorEntrega = (p.financeiro?.taxaEntrega || 10.00).toFixed(2);
-                    
                     htmlDisponiveis += `
                         <div style="background:#2d2d2d; padding:15px; border-radius:8px; border:1px solid #4CAF50; margin-bottom:10px;">
-                            <p style="margin:0 0 5px 0; color:#4CAF50; font-weight:bold;">📦 Pedido Ativo #${p.id}</p>
+                            <p style="margin:0 0 5px 0; color:#4CAF50; font-weight:bold;">📦 Pedido Aceito #${p.id}</p>
                             <p style="margin:0 0 5px 0;"><strong>Cliente:</strong> ${p.cliente}</p>
                             <p style="margin:0 0 5px 0; font-size:0.85rem; color:#aaa;">📍 ${p.entrega.enderecoCliente}</p>
                             <p style="margin:0 0 10px 0; font-size:0.9rem;">Status: <strong>${p.status}</strong></p>
                             <span class="valor-verde" style="display:block; margin-bottom:10px;">R$ ${valorEntrega}</span>
 
-                            ${p.status === 'Aguardando Chegada ao Restaurante' ? `
-                                <button class="btn-verde" onclick="chegouRestaurante(${p.id})">Cheguei no Restaurante</button>
-                                <button class="btn-vermelho" onclick="recusarPedido(${p.id})">Recusar Corrida</button>
-                            ` : ''}
-
-                            ${p.status === 'Motoboy Chegou no Restaurante' ? `
-                                <p style="color:#ff9800; font-size:0.85rem; text-align:center;">Aguardando o restaurante liberar o produto...</p>
-                                <button class="btn-vermelho" onclick="recusarPedido(${p.id})">Recusar Corrida</button>
-                            ` : ''}
-
-                            ${p.status === 'Produto Pronto para Coleta' ? `
-                                <p style="font-size:0.85rem; color:#4CAF50; margin-bottom:5px;">Insira o código fornecido pelo restaurante:</p>
+                            ${p.status === 'Disponível' ? `
+                                <p style="font-size:0.85rem; color:#aaa; margin-bottom:5px;">Insira o código de coleta do restaurante:</p>
                                 <input type="text" id="input-coleta-${p.id}" placeholder="Código de Coleta (4 dígitos)" style="width:100%; padding:10px; background:#1e1e1e; border:1px solid #444; color:#fff; border-radius:5px; margin-bottom:8px;">
-                                <button class="btn-verde" onclick="coletarPedido(${p.id})">Confirmar Coleta (Iniciar Rota)</button>
+                                <button class="btn-verde" onclick="coletarPedido(${p.id})">Coletar Pedido</button>
+                                <button class="btn-vermelho" onclick="recusarPedido(${p.id})">Recusar Corrida</button>
                             ` : ''}
 
                             ${p.status === 'Em Trânsito' ? `
-                                <p style="font-size:0.85rem; color:#ffcc00; margin-bottom:5px;">Insira o código de entrega do cliente:</p>
+                                <p style="font-size:0.85rem; color:#aaa; margin-bottom:5px;">Insira o código de entrega do cliente:</p>
                                 <input type="text" id="input-entrega-${p.id}" placeholder="Código de Entrega (4 dígitos)" style="width:100%; padding:10px; background:#1e1e1e; border:1px solid #444; color:#fff; border-radius:5px; margin-bottom:8px;">
                                 <button class="btn-verde" onclick="entregarPedido(${p.id})">Finalizar Entrega</button>
                             ` : ''}
@@ -332,8 +318,7 @@
                 }
             }
 
-            // Se o pedido estiver disponível e o motoboy estiver online (e sem pedido ativo)
-            if (p.status === 'Disponível' && online && !temPedidoAtivo) {
+            if (p.status === 'Disponível' && online && !p.motoboyId) {
                 const valorEntrega = (p.financeiro?.taxaEntrega || 10.00).toFixed(2);
                 htmlDisponiveis += `
                     <div style="background:#2d2d2d; padding:12px; border-radius:8px; border:1px solid #444; margin-bottom:10px;">
@@ -367,9 +352,9 @@
             }, 100);
         }
 
-        if (!htmlDisponiveis && online && !temPedidoAtivo) {
+        if (!htmlDisponiveis && online) {
             htmlDisponiveis = '<p style="text-align: center; color: #777;">Aguardando novas entregas...</p>';
-        } else if (!online && !temPedidoAtivo) {
+        } else if (!online && !htmlDisponiveis) {
             htmlDisponiveis = '<p style="text-align: center; color: #777;">Você está offline. Fique online para ver pedidos.</p>';
         }
 
@@ -388,11 +373,6 @@
             const json = await res.json();
             alert(json.erro);
         }
-    }
-
-    async function chegouRestaurante(id) {
-        const res = await fetch(`${API_URL}/pedidos/${id}/chegou-restaurante`, { method: 'POST' });
-        if (res.ok) buscarPedidos();
     }
 
     async function recusarPedido(id) {

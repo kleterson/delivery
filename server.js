@@ -163,19 +163,10 @@ app.post('/pedidos/:id/aceitar', (req, res) => {
     if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
     if (pedido.status !== "Disponível") return res.status(400).json({ erro: "Este pedido já foi aceito por outro motoboy." });
 
-    pedido.status = "Aguardando Chegada ao Restaurante";
+    pedido.status = "Disponível"; 
     pedido.motoboyId = motoboyId;
     pedido.motoboyNome = motoboyNome;
     res.json({ mensagem: "Entrega aceita com sucesso!", pedido });
-});
-
-app.post('/pedidos/:id/chegou-restaurante', (req, res) => {
-    const pedidoId = parseInt(req.params.id);
-    const pedido = pedidos.find(p => p.id === pedidoId);
-    if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
-
-    pedido.status = "Motoboy Chegou no Restaurante";
-    res.json({ mensagem: "Chegada notificada ao restaurante!", pedido });
 });
 
 app.post('/pedidos/:id/recusar', (req, res) => {
