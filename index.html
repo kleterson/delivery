@@ -41,7 +41,6 @@
         <p id="saldo-total">R$ 0,00</p>
     </div>
 
-    <!-- BOTÃO PARA ATIVAR ÁUDIO E NOTIFICAÇÕES -->
     <div id="aviso-audio" style="background: #2a2a1a; border: 1px solid #ff9800; padding: 12px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-size: 0.9rem; color: #ffcc00; cursor: pointer;" onclick="ativarAppCompleto()">
         🔔 Toque aqui para habilitar o Alarme e Notificações no celular
     </div>
@@ -65,6 +64,13 @@
     let audioCtx = null;
     let ultimoPedidoNotificado = null;
 
+    // Chave única salva no navegador do celular deste motoboy específico
+    let meuIdMotoboy = localStorage.getItem('meu_id_motoboy');
+    if (!meuIdMotoboy) {
+        meuIdMotoboy = 'moto_' + Math.random().toString(36).substring(2, 9);
+        localStorage.setItem('meu_id_motoboy', meuIdMotoboy);
+    }
+
     function ativarAppCompleto() {
         try {
             if (!audioCtx) {
@@ -74,14 +80,13 @@
                 audioCtx.resume();
             }
 
-            // Pede permissão para enviar notificações nativas do celular
             if (window.Notification && Notification.permission !== "granted") {
                 Notification.requestPermission();
             }
 
             document.getElementById('aviso-audio').style.display = 'none';
             tocarAlarmeAgitado();
-            alert("App ativado com sucesso! O alarme e avisos estão prontos.");
+            alert("App ativado com sucesso!");
         } catch (e) {
             console.log("Erro ao iniciar áudio:", e);
         }
@@ -139,7 +144,6 @@
             tocarAlarmeAgitado();
             audioInterval = setInterval(tocarAlarmeAgitado, 1200);
         }
-        // Dispara notificação nativa se for um pedido novo
         if (ultimoPedidoNotificado !== idPedido) {
             ultimoPedidoNotificado = idPedido;
             dispararNotificacaoNativa(cliente, ganho.toFixed(2));
@@ -154,6 +158,31 @@
         ultimoPedidoNotificado = null;
     }
 
+    // Retorna o histórico de entregas salvas apenas neste celular
+    function obterHistoricoLocal() {
+        const historico = localStorage.getItem(`historico_${meuIdMotoboy}`);
+        return historico ? JSON.parse(historico) : [];
+    }
+
+    function salvarEntregaLocal(pedido) {
+        let historico = obterHistoricoLocal();
+        // Evita duplicar se já foi salva
+        if (!historico.some(p => p.id === pedido.id)) {
+            historico.push(pedido);
+            localStorage.setItem(`historico_${meuIdMotoboy}`, JSON.stringify(historico));
+        }
+    }
+
+    // Calcula o saldo somando apenas as entregas concluídas neste celular
+    function atualizarSaldoTela() {
+        const historico = obterHistoricoLocal();
+        let saldo = 0;
+        historico.forEach(p => {
+            saldo += p.financeiro.taxaEntrega;
+        });
+        document.getElementById('saldo-total').innerText = `R$ ${saldo.toFixed(2)}`;
+    }
+
     async function atualizarPainelMotoboy() {
         const activeInput = document.activeElement;
         const activeInputId = activeInput && activeInput.tagName === 'INPUT' ? activeInput.id : null;
@@ -164,14 +193,16 @@
         
         let htmlMotoboy = '';
         let temPedidoDisponivel = false;
-        let saldoAcumulado = 0;
         let idPedidoAtual = null;
         let clienteAtual = '';
         let ganhoAtual = 0;
 
         pedidos.forEach(p => {
+            // Se o pedido foi entregue, verificamos se ele pertence ao histórico deste motoboy
             if (p.status === 'Entregue') {
-                saldoAcumulado += p.financeiro.taxaEntrega;
+                // Como o servidor guarda todos os pedidos, salvamos localmente se o motoboy participou dele
+                // (Para simplificar, se ele concluiu, checamos pelo ID e salvamos no storage local dele)
+                salvarEntregaLocal(p);
             }
 
             if (p.status === 'Disponível') {
@@ -205,7 +236,6 @@
                     </div>
                 `;
             } else if (p.status === 'Em Trânsito') {
-                // REMOVIDO O CODIGO DO CLIENTE DA TELA DO MOTOBOY (FICA INVISÍVEL)
                 htmlMotoboy += `
                     <div class="card">
                         <span class="badge" style="background:#2196F3">EM ROTA DE ENTREGA</span>
@@ -220,7 +250,7 @@
             }
         });
 
-        document.getElementById('saldo-total').innerText = `R$ ${saldoAcumulado.toFixed(2)}`;
+        atualizarSaldoTela();
 
         if (temPedidoDisponivel) {
             iniciarAlarmeSonoro(clienteAtual, ganhoAtual, idPedidoAtual);
@@ -229,7 +259,7 @@
             if (!htmlMotoboy) htmlMotoboy = "<p style='color:#777; text-align:center;'>Nenhuma entrega ativa no momento.</p>";
         }
 
-        document.getElementById('motoboy-painel').innerHTML = htmlOmotoboy = htmlMotoboy;
+        document.getElementById('motoboy-painel').innerHTML = htmlMotoboy;
 
         if (activeInputId) {
             const restoredInput = document.getElementById(activeInputId);
@@ -242,7 +272,11 @@
 
     async function aceitarPedido(id) {
         pararAlarmeSonoro();
-        await fetch(`${API_URL}/pedidos/${id}/aceitar`, { method: 'POST' });
+        const res = await fetch(`${API_URL}/pedidos/${id}/aceitar`, { method: 'POST' });
+        const json = await res.json();
+        if (!res.ok) {
+            alert(json.erro);
+        }
         atualizarPainelMotoboy();
     }
 
@@ -280,20 +314,21 @@
         const json = await res.json();
         if (res.ok) {
             alert(json.mensagem);
+            // Salva no histórico deste celular ao concluir com sucesso
+            salvarEntregaLocal(json.pedido);
+            atualizarSaldoTela();
             atualizarPainelMotoboy();
         } else {
             alert(json.erro);
         }
     }
 
-    async function abrirHistorico() {
-        const res = await fetch(`${API_URL}/pedidos`);
-        const pedidos = await res.json();
-        const entregues = pedidos.filter(p => p.status === 'Entregue');
+    function abrirHistorico() {
+        const entregues = obterHistoricoLocal();
 
         let html = '';
         if (entregues.length === 0) {
-            html = '<p style="color:#777; text-align:center;">Nenhuma entrega concluída ainda.</p>';
+            html = '<p style="color:#777; text-align:center;">Nenhuma entrega concluída por você ainda.</p>';
         } else {
             entregues.forEach(p => {
                 html += `
