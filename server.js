@@ -33,6 +33,7 @@ app.get('/', (req, res) => {
     `);
 });
 
+// CADASTRO DE MOTOBOY
 app.post('/motoboys/cadastrar', (req, res) => {
     const { nome, usuario, senha } = req.body;
     if (!nome || !usuario || !senha) {
@@ -48,28 +49,33 @@ app.post('/motoboys/cadastrar', (req, res) => {
         usuario, 
         senha, 
         ativo: true, 
-        online: false 
+        online: false,
+        rotaAtiva: false,
+        tempoBloqueioAte: 0
     };
     motoboysCadastrados.push(novoMotoboy);
-    res.status(201).json({ mensagem: "Cadastro realizado com sucesso!", motoboy: novoMotoboy });
+    res.status(201).json({ mensagem: "Cadastro realizado com sucesso!", motoboy: { id: novoMotoboy.id, nome: novoMotoboy.nome, usuario: novoMotoboy.usuario } });
 });
 
+// LOGIN DE MOTOBOY
 app.post('/motoboys/login', (req, res) => {
     const { usuario, senha } = req.body;
     const motoboy = motoboysCadastrados.find(m => m.usuario === usuario && m.senha === senha);
     if (!motoboy) {
         return res.status(400).json({ erro: "Usuário ou senha inválidos." });
     }
-    if (!motoboy.ativo) {
-        return res.status(403).json({ erro: "Conta desativada." });
+    if (motoboy.ativo === false) {
+        return res.status(403).json({ erro: "Sua conta foi desativada pelo administrador." });
     }
-    res.json({ mensagem: "Login bem-sucedido!", motoboy });
+    res.json({ mensagem: "Login bem-sucedido!", motoboy: { id: motoboy.id, nome: motoboy.nome, usuario: motoboy.usuario } });
 });
 
+// LISTAR MOTOBOYS PARA O ADMIN
 app.get('/admin/motoboys', (req, res) => {
     res.json(motoboysCadastrados);
 });
 
+// ADMIN: Ativar ou Desativar motoboy
 app.post('/admin/motoboys/:id/status', (req, res) => {
     const id = parseInt(req.params.id);
     const { ativo } = req.body;
@@ -77,18 +83,55 @@ app.post('/admin/motoboys/:id/status', (req, res) => {
     if (!motoboy) return res.status(404).json({ erro: "Motoboy não encontrado." });
     
     motoboy.ativo = ativo;
-    if (!ativo) motoboy.online = false;
+    if (!ativo) {
+        motoboy.online = false;
+        motoboy.rotaAtiva = false;
+        motoboy.tempoBloqueioAte = Date.now() + 300000; // 5 minutos de bloqueio temporário
+    } else {
+        motoboy.tempoBloqueioAte = 0; // Zera o tempo se o admin desbloquear manualmente
+    }
     res.json({ mensagem: "Status alterado com sucesso!", motoboy });
 });
 
+// MOTOBOY: Atualizar status de conexão
 app.post('/motoboys/:id/status-conexao', (req, res) => {
     const id = parseInt(req.params.id);
     const { online } = req.body;
     const motoboy = motoboysCadastrados.find(m => m.id === id);
     if (!motoboy) return res.status(404).json({ erro: "Motoboy não encontrado." });
 
+    const agora = Date.now();
+
+    if (!motoboy.ativo || agora < motoboy.tempoBloqueioAte) {
+        motoboy.online = false;
+        const tempoRestante = Math.ceil((motoboy.tempoBloqueioAte - agora) / 1000);
+        return res.status(403).json({ 
+            erro: "Temporariamente bloqueado aguarde .....", 
+            tempoRestante: tempoRestante > 0 ? tempoRestante : 300 
+        });
+    }
+
     motoboy.online = online;
     res.json({ mensagem: "Status atualizado", online: motoboy.online });
+});
+
+// MOTOBOY: Receber coordenadas do GPS
+app.post('/motoboys/:id/localizacao', (req, res) => {
+    const id = parseInt(req.params.id);
+    const { online } = req.body;
+    const motoboy = motoboysCadastrados.find(m => m.id === id);
+    if (!motoboy) return res.status(404).json({ erro: "Motoboy não encontrado." });
+
+    const agora = Date.now();
+    if (!motoboy.ativo || agora < motoboy.tempoBloqueioAte) {
+        motoboy.online = false;
+        return res.status(403).json({ erro: "Conta bloqueada ou em período de espera." });
+    }
+
+    if (online !== undefined) {
+        motoboy.online = online;
+    }
+    res.json({ mensagem: "Localização atualizada" });
 });
 
 app.get('/restaurante/pedidos', (req, res) => {
@@ -97,7 +140,8 @@ app.get('/restaurante/pedidos', (req, res) => {
         cliente: p.cliente,
         enderecoEntrega: p.entrega.enderecoCliente,
         status: p.status,
-        motoboyNome: p.motoboyNome || 'Nenhum',
+        // Garante que o nome do motoboy que cancelou vá corretamente para o frontend
+        motoboyNome: p.status === 'Cancelado pelo Motoboy' ? p.motoboyNomeCancelou : p.motoboyNome,
         codigoColetaParaValidar: p.codigoColeta,
         codigoEntregaParaValidar: p.codigoEntrega
     }));
@@ -113,11 +157,13 @@ app.post('/pedidos', (req, res) => {
     const novoPedido = {
         id: pedidos.length + 1,
         cliente,
+        retirada: { local: "Restaurante Sabor & Arte", endereco: enderecoRestaurante },
         entrega: { enderecoCliente: enderecoEntrega, distanciaKm: parseFloat(distanciaKm) },
         financeiro: { taxaEntrega: parseFloat(taxaEntrega.toFixed(2)) },
         status: "Disponível",
         motoboyId: null,
         motoboyNome: null,
+        motoboyNomeCancelou: null,
         codigoColeta: gerarCodigo(),   
         codigoEntrega: gerarCodigo(),  
         data: new Date()
@@ -136,12 +182,54 @@ app.post('/pedidos/:id/aceitar', (req, res) => {
     const pedido = pedidos.find(p => p.id === pedidoId);
 
     if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
-    if (pedido.status !== "Disponível") return res.status(400).json({ erro: "Pedido indisponível." });
+    if (pedido.status !== "Disponível") return res.status(400).json({ erro: "Este pedido já foi aceito por outro motoboy." });
 
-    pedido.status = "Aceito";
+    pedido.status = "Aguardando Chegada ao Restaurante";
     pedido.motoboyId = motoboyId;
     pedido.motoboyNome = motoboyNome;
-    res.json({ mensagem: "Entrega aceita!", pedido });
+    res.json({ mensagem: "Entrega aceita com sucesso!", pedido });
+});
+
+app.post('/pedidos/:id/chegou-restaurante', (req, res) => {
+    const pedidoId = parseInt(req.params.id);
+    const pedido = pedidos.find(p => p.id === pedidoId);
+    if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
+
+    pedido.status = "Motoboy Chegou no Restaurante";
+    res.json({ mensagem: "Chegada notificada ao restaurante!", pedido });
+});
+
+app.post('/pedidos/:id/produto-pronto', (req, res) => {
+    const pedidoId = parseInt(req.params.id);
+    const pedido = pedidos.find(p => p.id === pedidoId);
+    if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
+
+    pedido.status = "Produto Pronto para Coleta";
+    res.json({ mensagem: "Aviso enviado ao motoboy!", pedido });
+});
+
+app.post('/pedidos/:id/recusar', (req, res) => {
+    const pedidoId = parseInt(req.params.id);
+    const pedido = pedidos.find(p => p.id === pedidoId);
+    if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
+    
+    const nomeMotoboyCancelou = pedido.motoboyNome;
+    const idMotoboyCancelou = pedido.motoboyId;
+
+    if (idMotoboyCancelou) {
+        const motoboy = motoboysCadastrados.find(m => m.id === idMotoboyCancelou);
+        if (motoboy) {
+            motoboy.online = false;
+            motoboy.tempoBloqueioAte = Date.now() + 300000; // Bloqueio automático de 5 minutos
+        }
+    }
+
+    pedido.status = "Cancelado pelo Motoboy";
+    pedido.motoboyId = null;
+    pedido.motoboyNome = null; // Limpa para ficar disponível para outro
+    pedido.motoboyNomeCancelou = nomeMotoboyCancelou || "Desconhecido"; 
+    
+    res.json({ mensagem: "Entrega recusada e motoboy bloqueado temporariamente.", pedido });
 });
 
 app.post('/pedidos/:id/coletar', (req, res) => {
@@ -150,7 +238,7 @@ app.post('/pedidos/:id/coletar', (req, res) => {
     const pedido = pedidos.find(p => p.id === pedidoId);
 
     if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
-    if (pedido.codigoColeta !== codigoColeta) return res.status(400).json({ erro: "Código incorreto!" });
+    if (pedido.codigoColeta !== codigoColeta) return res.status(400).json({ erro: "Código de coleta incorreto!" });
 
     pedido.status = "Em Trânsito";
     res.json({ mensagem: "Coleta realizada!", pedido });
@@ -162,7 +250,7 @@ app.post('/pedidos/:id/entregar', (req, res) => {
     const pedido = pedidos.find(p => p.id === pedidoId);
 
     if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
-    if (pedido.codigoEntrega !== codigoEntrega) return res.status(400).json({ erro: "Código incorreto!" });
+    if (pedido.codigoEntrega !== codigoEntrega) return res.status(400).json({ erro: "Código de entrega incorreto!" });
 
     pedido.status = "Entregue";
     res.json({ mensagem: "Entregue com sucesso!", pedido });
