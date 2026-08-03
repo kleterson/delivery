@@ -75,7 +75,7 @@
             } else {
                 motoboys.forEach(m => {
                     const statusConexao = m.online ? '<span style="color:#4CAF50; font-weight:bold;">🟢 Online</span>' : '<span style="color:#777;">🔴 Offline</span>';
-                    const statusConta = m.ativo ? '<span style="color:#4CAF50;">Ativo</span>' : '<span style="color:#f44336; font-weight:bold;">Bloqueado</span>';
+                    const statusConta = m.ativo ? '<span style="color:#4CAF50;">Ativo</span>' : '<span style="color:#f44336; font-weight:bold;">Temporariamente Bloqueado</span>';
                     
                     html += `
                         <tr>
@@ -138,6 +138,14 @@
         }
     }
 
+    // Função para definir a cor do status na tela
+    function corStatus(status) {
+        if (status === 'Entregue') return '#4CAF50'; // Verde
+        if (status === 'Em Trânsito') return '#FFEB3B'; // Amarelo
+        if (status && status.includes('Cancelado')) return '#F44336'; // Vermelho
+        return '#ff9800'; // Laranja padrão para etapas intermediárias
+    }
+
     async function carregarPedidos() {
         const res = await fetch(`${API_URL}/restaurante/pedidos`);
         const pedidos = await res.json();
@@ -147,12 +155,17 @@
             html = '<p style="color:#777; text-align:center;">Nenhum pedido no momento.</p>';
         } else {
             pedidos.forEach(p => {
+                let nomeMotoboyExibicao = p.motoboyNome ? p.motoboyNome : '<span style="color:#777;">Aguardando aceite...</span>';
+                if (p.status === 'Cancelado pelo Motoboy' && p.motoboyNome) {
+                    nomeMotoboyExibicao = `<span style="color:#F44336; font-weight:bold;">${p.motoboyNome} (Cancelou)</span>`;
+                }
+
                 html += `
                     <div class="card">
                         <p><strong>Pedido #${p.id}</strong> - Cliente: <strong style="color:#ffcc00;">${p.cliente}</strong></p>
                         <p>📍 <strong>Entrega:</strong> ${p.enderecoEntrega}</p>
-                        <p>🛵 <strong>Motoboy:</strong> ${p.motoboyNome ? p.motoboyNome : '<span style="color:#777;">Aguardando aceite...</span>'}</p>
-                        <p>📌 <strong>Status Atual:</strong> <span style="color:#4CAF50; font-weight:bold;">${p.status}</span></p>
+                        <p>🛵 <strong>Motoboy:</strong> ${nomeMotoboyExibicao}</p>
+                        <p>📌 <strong>Status Atual:</strong> <span style="color: ${corStatus(p.status)}; font-weight:bold;">${p.status}</span></p>
                         
                         <div style="background:#222; padding: 10px; border-radius: 5px; margin-top: 10px;">
                             <p style="margin: 0 0 5px 0; font-size: 0.85rem; color: #aaa;">Códigos de Validação:</p>

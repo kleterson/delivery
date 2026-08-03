@@ -575,6 +575,17 @@
     async function recusarPedido(id) {
         pararAlarmeSonoro();
         await fetch(`${API_URL}/pedidos/${id}/recusar`, { method: 'POST' });
+        
+        // Força o app a ficar offline imediatamente após cancelar/recusar o pedido em andamento
+        estaOnline = false;
+        pararGeolocalizacao();
+        const btn = document.getElementById('btn-toggle-status');
+        btn.className = "btn-status-toggle status-off";
+        btn.innerHTML = "🔴 OFFLINE (Toque para Conectar)";
+        
+        // Inicia automaticamente os 5 minutos de bloqueio na tela do motoboy
+        iniciarContagemBloqueio(300);
+        
         atualizarPainelMotoboy();
     }
 
