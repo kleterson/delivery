@@ -7,7 +7,7 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 let pedidos = [];
-let motoboysCadastrados = []; // Banco de dados em memória para os motoboys
+let motoboysCadastrados = [];
 
 const enderecoRestaurante = "Av. Principal, 100 - Centro";
 const gerarCodigo = () => Math.floor(1000 + Math.random() * 9000).toString();
@@ -62,9 +62,11 @@ app.get('/restaurante/pedidos', (req, res) => {
     const pedidosRestaurante = pedidos.map(p => ({
         id: p.id,
         cliente: p.cliente,
+        enderecoEntrega: p.entrega.enderecoCliente, // Endereço incluído para o painel
         status: p.status,
+        motoboyNome: p.motoboyNome,
         codigoColetaParaValidar: p.codigoColeta,
-        codigoEntregaParaValidar: p.codigoEntrega // Vírgula adicionada corretamente aqui
+        codigoEntregaParaValidar: p.codigoEntrega
     }));
     res.json(pedidosRestaurante);
 });
@@ -104,10 +106,30 @@ app.post('/pedidos/:id/aceitar', (req, res) => {
     if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
     if (pedido.status !== "Disponível") return res.status(400).json({ erro: "Este pedido já foi aceito por outro motoboy." });
 
-    pedido.status = "Aguardando Coleta";
+    pedido.status = "Aguardando Chegada ao Restaurante";
     pedido.motoboyId = motoboyId;
     pedido.motoboyNome = motoboyNome;
     res.json({ mensagem: "Entrega aceita com sucesso!", pedido });
+});
+
+// NOVO: Motoboy confirma que chegou no restaurante (Arrastar botão)
+app.post('/pedidos/:id/chegou-restaurante', (req, res) => {
+    const pedidoId = parseInt(req.params.id);
+    const pedido = pedidos.find(p => p.id === pedidoId);
+    if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
+
+    pedido.status = "Motoboy Chegou no Restaurante";
+    res.json({ mensagem: "Chegada notificada ao restaurante!", pedido });
+});
+
+// NOVO: Restaurante avisa que o produto está pronto
+app.post('/pedidos/:id/produto-pronto', (req, res) => {
+    const pedidoId = parseInt(req.params.id);
+    const pedido = pedidos.find(p => p.id === pedidoId);
+    if (!pedido) return res.status(404).json({ erro: "Pedido não encontrado." });
+
+    pedido.status = "Produto Pronto para Coleta";
+    res.json({ mensagem: "Aviso enviado ao motoboy!", pedido });
 });
 
 app.post('/pedidos/:id/recusar', (req, res) => {
@@ -142,7 +164,7 @@ app.post('/pedidos/:id/entregar', (req, res) => {
     if (pedido.codigoEntrega !== codigoEntrega) return res.status(400).json({ erro: "Código de entrega incorreto!" });
 
     pedido.status = "Entregue";
-    res.json({ mensagem: "Entrega concluída!", pedido });
+    res.json({ mensagem: "Entregue com sucesso!", pedido });
 });
 
 app.listen(PORT, () => {

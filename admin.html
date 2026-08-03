@@ -34,7 +34,6 @@
             margin-bottom: 25px; 
         }
 
-        /* ESTRUTURA DIVIDIDA EM DUAS COLUNAS */
         .painel-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -44,7 +43,7 @@
 
         @media (max-width: 768px) {
             .painel-grid {
-                grid-template-columns: 1fr; /* No celular fica um abaixo do outro */
+                grid-template-columns: 1fr;
             }
         }
 
@@ -104,7 +103,11 @@
             margin-bottom: 15px;
         }
 
-        /* ESTILO DOS PEDIDOS NO BALCÃO */
+        .btn-pronto {
+            background-color: #2196F3;
+            margin-top: 8px;
+        }
+
         .lista-pedidos {
             max-height: 450px;
             overflow-y: auto;
@@ -191,7 +194,7 @@
 
         const json = await res.json();
         if (res.ok) {
-            alert("Pedido criado e enviado para os motoboys com sucesso!");
+            alert("Pedido criado com sucesso!");
             document.getElementById('cliente').value = '';
             document.getElementById('endereco').value = '';
             document.getElementById('distancia').value = '';
@@ -201,8 +204,20 @@
         }
     }
 
+    async function marcarProdutoPronto(id) {
+        const res = await fetch(`${API_URL}/pedidos/${id}/produto-pronto`, {
+            method: 'POST'
+        });
+        const json = await res.json();
+        if (res.ok) {
+            alert("Aviso enviado ao motoboy!");
+            carregarPedidos();
+        } else {
+            alert(json.erro);
+        }
+    }
+
     async function carregarPedidos() {
-        // Se o usuário estiver focado em qualquer input, bloqueia totalmente o recarregamento automático da tela
         const elementoAtivo = document.activeElement;
         if (elementoAtivo && (elementoAtivo.tagName === 'INPUT' || elementoAtivo.tagName === 'TEXTAREA')) {
             return;
@@ -220,15 +235,20 @@
                     html += `
                         <div class="pedido-item">
                             <p><strong>Pedido #${p.id}</strong> - ${p.cliente}</p>
+                            <p>📍 <strong>Endereço de Entrega:</strong> ${p.enderecoEntrega}</p>
                             <p>Status: <span class="status-badge">${p.status}</span></p>
+                            <p>🛵 Motoboy: ${p.motoboyNome || 'Aguardando aceitar'}</p>
                             <p>🔑 Código de Coleta: <span class="codigo-destaque">${p.codigoColetaParaValidar || '---'}</span></p>
                             <p>🔒 Código do Cliente: <span class="codigo-destaque" style="color: #4CAF50;">${p.codigoEntregaParaValidar || '---'}</span></p>
+                            
+                            ${p.status === 'Motoboy Chegou no Restaurante' ? `
+                                <button class="btn-pronto" onclick="marcarProdutoPronto(${p.id})">📦 Produto Pronto</button>
+                            ` : ''}
                         </div>
                     `;
                 });
             }
 
-            // Só atualiza se o conteúdo realmente mudou ou se o container estiver vazio, evitando piscadas desnecessárias
             const container = document.getElementById('lista-pedidos');
             if (container.innerHTML !== html) {
                 container.innerHTML = html;
@@ -238,8 +258,7 @@
         }
     }
 
-    // Intervalo ajustado para 6 segundos para dar mais respiro ao celular
-    setInterval(carregarPedidos, 6000);
+    setInterval(carregarPedidos, 5000);
     carregarPedidos();
 </script>
 
