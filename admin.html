@@ -10,6 +10,26 @@
         
         .container { max-width: 1300px; margin: auto; }
         h1 { color: #ff5252; text-align: center; margin-bottom: 25px; }
+
+        /* Estilo do Dashboard / KPIs no topo */
+        .dashboard-topo {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .dash-card {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .dash-card h3 { margin: 0; font-size: 0.9rem; color: #aaa; }
+        .dash-card p { margin: 8px 0 0 0; font-size: 1.5rem; font-weight: bold; color: #ff5252; }
         
         /* Layout de Tela Dividida (Grid) */
         .dashboard-grid {
@@ -19,9 +39,8 @@
         }
 
         @media (max-width: 900px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
+            .dashboard-topo { grid-template-columns: 1fr; }
+            .dashboard-grid { grid-template-columns: 1fr; }
         }
 
         .coluna {
@@ -61,6 +80,22 @@
 
 <div class="container">
     <h1>🍔 Painel do Restaurante (Admin)</h1>
+
+    <!-- DASHBOARD DE INDICADORES NO TOPO -->
+    <div class="dashboard-topo">
+        <div class="dash-card">
+            <h3>🛵 Motoboys Online</h3>
+            <p id="dash-motoboys-online">0</p>
+        </div>
+        <div class="dash-card">
+            <h3>📦 Pedidos Ativos</h3>
+            <p id="dash-pedidos-ativos">0</p>
+        </div>
+        <div class="dash-card">
+            <h3>✅ Entregues Hoje</h3>
+            <p id="dash-pedidos-entregues">0</p>
+        </div>
+    </div>
 
     <div class="dashboard-grid">
         <!-- COLUNA ESQUERDA: Motoboys e Cadastros -->
@@ -117,6 +152,7 @@
             const res = await fetch(`${API_URL}/admin/motoboys`);
             const motoboys = await res.json();
             let html = '';
+            let onlineCount = 0;
 
             const agora = Date.now();
 
@@ -124,6 +160,7 @@
                 html = '<tr><td colspan="4" style="text-align:center; color:#777;">Nenhum motoboy cadastrado.</td></tr>';
             } else {
                 motoboys.forEach(m => {
+                    if (m.online) onlineCount++;
                     const statusConexao = m.online ? '<span style="color:#4CAF50; font-weight:bold;">🟢 Online</span>' : '<span style="color:#777;">🔴 Offline</span>';
                     
                     let statusConta = '<span style="color:#4CAF50;">Ativo</span>';
@@ -152,6 +189,7 @@
                 });
             }
             document.getElementById('tabela-motoboys').innerHTML = html;
+            document.getElementById('dash-motoboys-online').innerText = onlineCount;
         } catch (e) {
             console.log("Erro ao carregar motoboys", e);
         }
@@ -206,11 +244,19 @@
         const res = await fetch(`${API_URL}/restaurante/pedidos`);
         const pedidos = await res.json();
         let html = '';
+        let ativosCount = 0;
+        let entreguesCount = 0;
 
         if (pedidos.length === 0) {
             html = '<p style="color:#777; text-align:center;">Nenhum pedido no momento.</p>';
         } else {
             pedidos.forEach(p => {
+                if (p.status === 'Entregue') {
+                    entreguesCount++;
+                } else if (!p.status.includes('Cancelado')) {
+                    ativosCount++;
+                }
+
                 let nomeMotoboyExibicao = p.motoboyNome ? p.motoboyNome : '<span style="color:#777;">Aguardando aceite...</span>';
                 if (p.status === 'Cancelado pelo Motoboy' && p.motoboyNome) {
                     nomeMotoboyExibicao = `<span style="color:#F44336; font-weight:bold;">${p.motoboyNome} (Cancelou)</span>`;
@@ -236,6 +282,8 @@
             });
         }
         document.getElementById('lista-pedidos').innerHTML = html;
+        document.getElementById('dash-pedidos-ativos').innerText = ativosCount;
+        document.getElementById('dash-pedidos-entregues').innerText = entreguesCount;
     }
 
     async function produtoPronto(id) {
