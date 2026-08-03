@@ -24,6 +24,8 @@
         
         .btn-recusar { background-color: #f44336; }
         .btn-aceitar { background-color: #2196F3; }
+        .btn-rota { background-color: #00bcd4; color: white; text-align: center; text-decoration: none; display: block; padding: 12px; border-radius: 6px; font-weight: bold; margin: 6px 0; }
+        .btn-chegada { background-color: #ff9800; }
         .btn-historico { background-color: #607D8B; margin-top: 20px; }
         .btn-sair { background-color: #d32f2f; margin-top: 10px; }
         .badge { background: #ff5252; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; }
@@ -234,9 +236,11 @@
     async function atualizarPainelMotoboy() {
         if (!motoboyLogado) return;
 
+        // Se o motoboy estiver digitando em algum campo, pausa a atualização para não fechar o teclado
         const activeInput = document.activeElement;
-        const activeInputId = activeInput && activeInput.tagName === 'INPUT' ? activeInput.id : null;
-        const activeInputValue = activeInput && activeInput.tagName === 'INPUT' ? activeInput.value : '';
+        if (activeInput && activeInput.tagName === 'INPUT') {
+            return;
+        }
 
         const res = await fetch(`${API_URL}/pedidos`);
         const pedidos = await res.json();
@@ -249,7 +253,6 @@
         let saldoAcumulado = 0;
 
         pedidos.forEach(p => {
-            // Calcula o saldo somando apenas as entregas concluídas deste motoboy específico
             if (p.status === 'Entregue' && p.motoboyId === motoboyLogado.id) {
                 saldoAcumulado += p.financeiro.taxaEntrega;
             }
@@ -271,15 +274,30 @@
                         <button class="btn-recusar" onclick="recusarPedido(${p.id})">RECUSAR</button>
                     </div>
                 `;
-            } else if (p.status === 'Aguardando Coleta' && p.motoboyId === motoboyLogado.id) {
+            } else if ((p.status === 'Aguardando Chegada ao Restaurante' || p.status === 'Motoboy Chegou no Restaurante' || p.status === 'Produto Pronto para Coleta') && p.motoboyId === motoboyLogado.id) {
+                
+                let statusTexto = "VÁ AO RESTAURANTE";
+                if (p.status === 'Motoboy Chegou no Restaurante') statusTexto = "AGUARDANDO PRODUTO FICAR PRONTO";
+                if (p.status === 'Produto Pronto para Coleta') statusTexto = "PRODUTO PRONTO NO BALCÃO!";
+
                 htmlMotoboy += `
                     <div class="card">
-                        <span class="badge" style="background:#ff9800">VÁ AO RESTAURANTE</span>
+                        <span class="badge" style="background:#ff9800">${statusTexto}</span>
                         <p><strong>Pedido #${p.id}</strong> - Cliente: <strong style="color:#ffcc00;">${p.cliente}</strong></p>
-                        <p>📍 Destino: <strong>${p.entrega.enderecoCliente}</strong></p>
-                        <p>📍 Retirada: ${p.retirada.endereco}</p>
+                        <p>📍 <strong>Retirada:</strong> ${p.retirada.endereco}</p>
+                        
+                        <!-- BOTÃO DE ROTA DO GOOGLE MAPS PARA O RESTAURANTE -->
+                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.retirada.endereco)}" target="_blank" class="btn-rota">
+                            🗺️ Abrir Rota para o Restaurante (Google Maps)
+                        </a>
+
                         <p>💰 <strong>Ganho:</strong> <span style="color:#4CAF50;">R$ ${p.financeiro.taxaEntrega.toFixed(2)}</span></p>
-                        <input type="text" id="codigo-coleta-${p.id}" placeholder="Código de Coleta do Restaurante">
+                        
+                        ${p.status === 'Aguardando Chegada ao Restaurante' ? `
+                            <button class="btn-chegada" onclick="notificarChegada(${p.id})">📍 Cheguei no Restaurante</button>
+                        ` : ''}
+
+                        <input type="text" id="codigo-coleta-${p.id}" placeholder="Código de Coleta do Restaurante" style="margin-top: 10px;">
                         <button onclick="coletarPedido(${p.id})">Confirmar Coleta</button>
                         <button class="btn-recusar" onclick="recusarPedido(${p.id})" style="margin-top:5px;">Cancelar Corrida</button>
                     </div>
@@ -290,6 +308,12 @@
                         <span class="badge" style="background:#2196F3">EM ROTA DE ENTREGA</span>
                         <p>👤 <strong>Cliente:</strong> <span style="color:#4CAF50; font-size: 1.1rem;">${p.cliente}</span></p>
                         <p>📍 <strong>Destino:</strong> ${p.entrega.enderecoCliente}</p>
+                        
+                        <!-- BOTÃO DE ROTA DO GOOGLE MAPS PARA O CLIENTE -->
+                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.entrega.enderecoCliente)}" target="_blank" class="btn-rota">
+                            🗺️ Abrir Rota para o Cliente (Google Maps)
+                        </a>
+
                         <p>💰 <strong>Ganho:</strong> <span style="color:#4CAF50; font-weight:bold; font-size: 1.1rem;">R$ ${p.financeiro.taxaEntrega.toFixed(2)}</span></p>
                         <p style="font-size: 0.85rem; color: #888;">(Peça o código de 4 dígitos diretamente ao cliente)</p>
                         <input type="text" id="codigo-entrega-${p.id}" placeholder="Digite o Código do Cliente">
@@ -309,14 +333,6 @@
         }
 
         document.getElementById('motoboy-painel').innerHTML = htmlMotoboy;
-
-        if (activeInputId) {
-            const restoredInput = document.getElementById(activeInputId);
-            if (restoredInput) {
-                restoredInput.value = activeInputValue;
-                restoredInput.focus();
-            }
-        }
     }
 
     async function aceitarPedido(id) {
@@ -331,12 +347,24 @@
         atualizarPainelMotoboy();
     }
 
+    async function notificarChegada(id) {
+        const res = await fetch(`${API_URL}/pedidos/${id}/chegou-restaurante`, {
+            method: 'POST'
+        });
+        const json = await res.json();
+        if (res.ok) {
+            alert("Chegada notificada ao restaurante com sucesso!");
+            atualizarPainelMotoboy();
+        } else {
+            alert(json.erro);
+        }
+    }
+
     async function recusarPedido(id) {
-        pararAlarmes();
+        pararAlarmeSonoro();
         await fetch(`${API_URL}/pedidos/${id}/recusar`, { method: 'POST' });
         atualizarPainelMotoboy();
     }
-    function pararAlarmes() { pararAlarmeSonoro(); }
 
     async function coletarPedido(id) {
         const inputElem = document.getElementById(`codigo-coleta-${id}`);
@@ -393,7 +421,7 @@
     }
 
     function iniciarLoopApp() {
-        setInterval(atualizarPainelMotoboy, 3000);
+        setInterval(atualizarPainelMotoboy, 4000);
         atualizarPainelMotoboy();
     }
 
