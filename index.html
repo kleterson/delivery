@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>App do Motoboy</title>
-    <!-- Leaflet CSS para o Mapa -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 15px; }
@@ -15,32 +14,26 @@
         .painel-saldo h3 { margin: 0; color: #aaa; font-size: 0.9rem; text-transform: uppercase; }
         .painel-saldo p { margin: 5px 0 0 0; color: #4CAF50; font-size: 1.8rem; font-weight: bold; }
 
-        /* Botão de Status Online/Offline */
-        .painel-status-conexao {
-            margin-bottom: 15px;
-        }
-        .btn-status-toggle {
-            width: 100%;
-            padding: 14px;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            border: none;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
+        .painel-status-conexao { margin-bottom: 15px; }
+        .btn-status-toggle { width: 100%; padding: 14px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; border: none; cursor: pointer; transition: background 0.3s; }
         .status-on { background-color: #4CAF50; color: white; box-shadow: 0 0 10px rgba(76,175,80,0.4); }
         .status-off { background-color: #f44336; color: white; box-shadow: 0 0 10px rgba(244,67,54,0.4); }
-
-        /* Estilo do Mapa */
-        #mapa-container {
-            width: 100%;
-            height: 220px;
+        
+        /* Estilo do aviso de bloqueio */
+        #aviso-bloqueio {
+            display: none;
+            background: #2c1a1a;
+            border: 2px solid #ff5252;
+            color: #ff9800;
+            padding: 15px;
             border-radius: 8px;
+            text-align: center;
             margin-bottom: 15px;
-            border: 1px solid #444;
-            display: none; /* Só aparece quando logado */
+            font-weight: bold;
+            font-size: 1.1rem;
         }
+
+        #mapa-container { width: 100%; height: 220px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #444; display: none; }
 
         .card { background: #2d2d2d; border: 1px solid #444; padding: 15px; margin-bottom: 12px; border-radius: 8px; }
         .card-alerta { border: 2px solid #ff5252; background: #2c1a1a; animation: piscar 0.8s infinite alternate; }
@@ -72,7 +65,6 @@
 <div class="container">
     <h1>🛵 App do Motoboy</h1>
 
-    <!-- TELA DE LOGIN / CADASTRO -->
     <div id="tela-auth" class="auth-box" style="display: block;">
         <div id="form-login">
             <h2>Entrar na Conta</h2>
@@ -92,16 +84,19 @@
         </div>
     </div>
 
-    <!-- TELA PRINCIPAL DO APLICATIVO -->
     <div id="tela-app" style="display: none;">
         <p id="saudacao-motoboy" style="text-align: center; color: #4CAF50; font-weight: bold; margin-bottom: 10px;"></p>
 
-        <!-- BOTÃO DE CONTROLE DE ROTA (ONLINE / OFFLINE) -->
+        <!-- AVISO DE BLOQUEIO -->
+        <div id="aviso-bloqueio">
+            Temporariamente bloqueado, aguarde... <br>
+            <span style="font-size: 2rem;">⏱️ <span id="contador-bloqueio">05:00</span></span>
+        </div>
+
         <div class="painel-status-conexao">
             <button id="btn-toggle-status" class="btn-status-toggle status-off" onclick="alternarStatusOnline()">🔴 OFFLINE (Toque para Conectar)</button>
         </div>
 
-        <!-- MAPA EM TEMPO REAL -->
         <div id="mapa-container"></div>
 
         <div class="painel-saldo">
@@ -128,7 +123,6 @@
     </div>
 </div>
 
-<!-- Leaflet JS para o Mapa -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
@@ -142,6 +136,41 @@
     let watchId = null;
     let map = null;
     let markerMotoboy = null;
+    
+    let timerBloqueio = null;
+
+    function formatarTempo(segundos) {
+        const min = Math.floor(segundos / 60);
+        const seg = segundos % 60;
+        return `${min.toString().padStart(2, '0')}:${seg.toString().padStart(2, '0')}`;
+    }
+
+    function iniciarContagemBloqueio(segundosIniciais) {
+        const divAviso = document.getElementById('aviso-bloqueio');
+        const spanContador = document.getElementById('contador-bloqueio');
+        const btnToggle = document.getElementById('btn-toggle-status');
+        
+        divAviso.style.display = 'block';
+        btnToggle.disabled = true;
+        btnToggle.style.opacity = '0.5';
+        
+        let tempoRestante = segundosIniciais;
+        
+        if (timerBloqueio) clearInterval(timerBloqueio);
+        
+        timerBloqueio = setInterval(() => {
+            tempoRestante--;
+            if (tempoRestante <= 0) {
+                clearInterval(timerBloqueio);
+                divAviso.style.display = 'none';
+                btnToggle.disabled = false;
+                btnToggle.style.opacity = '1';
+                spanContador.innerText = "05:00";
+            } else {
+                spanContador.innerText = formatarTempo(tempoRestante);
+            }
+        }, 1000);
+    }
 
     function verificarSessao() {
         if (motoboyLogado) {
@@ -160,7 +189,6 @@
 
     function inicializarMapa() {
         if (map) return;
-        // Inicializa o mapa centrado provisoriamente no Brasil
         map = L.map('mapa-container').setView([-15.7801, -47.9292], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -174,7 +202,6 @@
         if (!map) return;
         const coords = [lat, lon];
         if (!markerMotoboy) {
-            // Cria ícone personalizado da motinha
             const iconeMoto = L.divIcon({
                 html: '🛵',
                 className: 'custom-motoboy-icon',
@@ -188,22 +215,46 @@
         map.setView(coords, 16);
     }
 
-    function alternarStatusOnline() {
-        estaOnline = !estaOnline;
+    async function alternarStatusOnline() {
         const btn = document.getElementById('btn-toggle-status');
         
-        if (estaOnline) {
-            btn.className = "btn-status-toggle status-on";
-            btn.innerHTML = "🟢 ONLINE (Pronto para entregas)";
-            iniciarGeolocalizacao();
-        } else {
-            btn.className = "btn-status-toggle status-off";
-            btn.innerHTML = "🔴 OFFLINE (Toque para Conectar)";
-            pararGeolocalizacao();
-            pararAlarmeSonoro();
-            document.getElementById('motoboy-painel').innerHTML = "<p style='color:#777; text-align:center;'>Você está offline.</p>";
+        // Tenta mudar o status no servidor primeiro
+        try {
+            const res = await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/status-conexao`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ online: !estaOnline })
+            });
+            
+            const json = await res.json();
+            
+            if (res.status === 403) {
+                // Está bloqueado! 
+                estaOnline = false;
+                btn.className = "btn-status-toggle status-off";
+                btn.innerHTML = "🔴 OFFLINE (Toque para Conectar)";
+                pararGeolocalizacao();
+                iniciarContagemBloqueio(json.tempoRestante);
+                return;
+            }
+
+            if (res.ok) {
+                estaOnline = !estaOnline;
+                if (estaOnline) {
+                    btn.className = "btn-status-toggle status-on";
+                    btn.innerHTML = "🟢 ONLINE (Pronto para entregas)";
+                    iniciarGeolocalizacao();
+                } else {
+                    btn.className = "btn-status-toggle status-off";
+                    btn.innerHTML = "🔴 OFFLINE (Toque para Conectar)";
+                    pararGeolocalizacao();
+                    pararAlarmeSonoro();
+                    document.getElementById('motoboy-painel').innerHTML = "<p style='color:#777; text-align:center;'>Você está offline.</p>";
+                }
+            }
+        } catch (e) {
+            console.log("Erro ao atualizar status", e);
         }
-        notificarStatusServidor();
     }
 
     function iniciarGeolocalizacao() {
@@ -219,7 +270,7 @@
                 { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
             );
         } else {
-            alert("Geolocalização não é suportada pelo seu navegador.");
+            alert("Geolocalização não é suportada.");
         }
     }
 
@@ -231,7 +282,7 @@
     }
 
     async function enviarCoordenadasServidor(lat, lon) {
-        if (!motoboyLogado) return;
+        if (!motoboyLogado || !estaOnline) return;
         try {
             await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/localizacao`, {
                 method: 'POST',
@@ -240,19 +291,6 @@
             });
         } catch (e) {
             console.log("Erro ao enviar coordenadas", e);
-        }
-    }
-
-    async function notificarStatusServidor() {
-        if (!motoboyLogado) return;
-        try {
-            await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/status-conexao`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ online: estaOnline })
-            });
-        } catch (e) {
-            console.log("Erro ao atualizar status no servidor", e);
         }
     }
 
@@ -306,11 +344,11 @@
 
     function fazerLogout() {
         estaOnline = false;
-        notificarStatusServidor();
         pararGeolocalizacao();
         localStorage.removeItem('motoboy_logado');
         motoboyLogado = null;
         pararAlarmeSonoro();
+        if (timerBloqueio) clearInterval(timerBloqueio);
         location.reload();
     }
 

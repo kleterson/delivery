@@ -1,248 +1,112 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <link rel="manifest" href="/manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel do Restaurante</title>
+    <title>Painel do Restaurante (Admin)</title>
     <style>
-        :root {
-            --bg-color: #121212;
-            --card-bg: #1e1e1e;
-            --border-color: #333;
-            --accent-red: #ff5252;
-            --accent-green: #4CAF50;
-            --text-color: #e0e0e0;
-        }
-
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            background-color: var(--bg-color); 
-            color: var(--text-color); 
-            margin: 0; 
-            padding: 20px; 
-        }
-
-        .main-container { 
-            max-width: 1200px; 
-            margin: auto; 
-        }
-
-        h1 { 
-            color: var(--accent-red); 
-            text-align: center; 
-            font-size: 1.8rem; 
-            margin-bottom: 25px; 
-        }
-
-        .painel-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 20px;
-            align-items: start;
-        }
-
-        @media (max-width: 900px) {
-            .painel-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .card-secao {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-        }
-
-        h2 { 
-            color: var(--accent-red); 
-            font-size: 1.1rem; 
-            margin-top: 0; 
-            margin-bottom: 20px; 
-            text-align: center;
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 10px;
-        }
-        
-        input, button { 
-            padding: 12px; 
-            margin: 8px 0; 
-            width: 100%; 
-            box-sizing: border-box; 
-            border-radius: 6px; 
-            border: none; 
-            font-size: 1rem; 
-        }
-        
-        input { 
-            background: #2a2a2a; 
-            color: white; 
-            border: 1px solid #444; 
-        }
-
-        input:focus {
-            border-color: var(--accent-green);
-            outline: none;
-        }
-
-        button { 
-            background-color: var(--accent-green); 
-            color: white; 
-            cursor: pointer; 
-            font-weight: bold; 
-            transition: opacity 0.2s;
-        }
-
-        button:hover { 
-            opacity: 0.9; 
-        }
-
-        .btn-atualizar {
-            background-color: #ff9800;
-            margin-bottom: 15px;
-        }
-
-        .btn-pronto {
-            background-color: #2196F3;
-            margin-top: 8px;
-        }
-
-        .lista-pedidos, .lista-motoboys {
-            max-height: 450px;
-            overflow-y: auto;
-            padding-right: 5px;
-        }
-
-        .pedido-item, .motoboy-item {
-            background: #252525;
-            border: 1px solid #444;
-            padding: 12px 15px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            border-left: 5px solid var(--accent-green);
-        }
-
-        .motoboy-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .status-dot {
-            height: 12px;
-            width: 12px;
-            background-color: #777;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 6px;
-        }
-
-        .status-dot.online {
-            background-color: #4CAF50;
-            box-shadow: 0 0 8px #4CAF50;
-        }
-
-        .codigo-destaque {
-            color: #ffcc00;
-            font-weight: bold;
-            font-size: 1.05rem;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            color: #fff;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        h1, h2 { color: #ff5252; text-align: center; }
+        .secao { margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 20px; }
+        input, button, select { padding: 12px; margin: 6px 0; width: 100%; box-sizing: border-box; border-radius: 6px; border: none; font-size: 1rem; }
+        input, select { background: #333; color: white; border: 1px solid #555; }
+        button { background-color: #ff5252; color: white; cursor: pointer; font-weight: bold; }
+        button:hover { opacity: 0.9; }
+        .card { background: #2d2d2d; border: 1px solid #444; padding: 15px; margin-bottom: 12px; border-radius: 8px; }
+        .btn-acao { background-color: #4CAF50; width: auto; padding: 8px 15px; margin-right: 5px; font-size: 0.9rem; }
+        .btn-bloquear { background-color: #f44336; width: auto; padding: 8px 15px; font-size: 0.9rem; }
+        .btn-desbloquear { background-color: #2196F3; width: auto; padding: 8px 15px; font-size: 0.9rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #444; font-size: 0.95rem; }
+        th { background-color: #252525; color: #ff5252; }
     </style>
 </head>
 <body>
 
-<div class="main-container">
-    <h1>🍔 Painel do Restaurante</h1>
-    
-    <div class="painel-grid">
-        
-        <!-- COLUNA 1: CRIAR PEDIDO -->
-        <div class="card-secao">
-            <h2>Criar Novo Pedido</h2>
-            <input type="text" id="cliente" placeholder="Nome do Cliente">
-            <input type="text" id="endereco" placeholder="Endereço de Entrega">
-            <input type="number" id="distancia" placeholder="Distância em KM (Ex: 3)">
-            <button onclick="criarPedido()">Fazer Pedido</button>
-        </div>
+<div class="container">
+    <h1>🍔 Painel do Restaurante (Admin)</h1>
 
-        <!-- COLUNA 2: MOTOBOYS CADASTRADOS (COM BOLINHA VERDE ONLINE) -->
-        <div class="card-secao">
-            <h2>Motoboys & Status</h2>
-            <div id="lista-motoboys" class="lista-motoboys">
-                <p style="text-align: center; color: #777;">Carregando motoboys...</p>
-            </div>
+    <!-- GERENCIAR MOTOBOYS -->
+    <div class="secao">
+        <h2>🛵 Motoboys Cadastrados</h2>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Usuário</th>
+                        <th>Conexão</th>
+                        <th>Status da Conta</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabela-motoboys">
+                    <tr><td colspan="5" style="text-align:center; color:#777;">Carregando motoboys...</td></tr>
+                </tbody>
+            </table>
         </div>
+    </div>
 
-        <!-- COLUNA 3: PEDIDOS NO BALCÃO -->
-        <div class="card-secao">
-            <h2>Pedidos no Balcão</h2>
-            <button class="btn-atualizar" onclick="carregarDadosGerais()">Atualizar Tudo</button>
-            <div id="lista-pedidos" class="lista-pedidos">
-                <p style="text-align: center; color: #777;">Carregando pedidos...</p>
-            </div>
-        </div>
+    <!-- CADASTRAR NOVO PEDIDO -->
+    <div class="secao">
+        <h2>📝 Cadastrar Novo Pedido</h2>
+        <input type="text" id="cliente" placeholder="Nome do Cliente">
+        <input type="text" id="enderecoEntrega" placeholder="Endereço de Entrega (Ex: Rua das Flores, 50)">
+        <input type="number" id="distanciaKm" placeholder="Distância em KM (Ex: 3.5)">
+        <button onclick="cadastrarPedido()">Lançar Pedido para Entrega</button>
+    </div>
 
+    <!-- LISTA DE PEDIDOS -->
+    <div class="secao">
+        <h2>📦 Acompanhamento de Pedidos</h2>
+        <div id="lista-pedidos">Carregando pedidos...</div>
     </div>
 </div>
 
 <script>
     const API_URL = window.location.origin;
 
-    async function criarPedido() {
-        const cliente = document.getElementById('cliente').value;
-        const enderecoEntrega = document.getElementById('endereco').value;
-        const distanciaKm = document.getElementById('distancia').value;
+    async function carregarMotoboys() {
+        try {
+            const res = await fetch(`${API_URL}/admin/motoboys`);
+            const motoboys = await res.json();
+            let html = '';
 
-        if (!cliente || !enderecoEntrega || !distanciaKm) {
-            alert("Por favor, preencha todos os campos!");
-            return;
-        }
-
-        const res = await fetch(`${API_URL}/pedidos`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cliente, enderecoEntrega, distanciaKm })
-        });
-
-        const json = await res.json();
-        if (res.ok) {
-            alert("Pedido criado com sucesso!");
-            document.getElementById('cliente').value = '';
-            document.getElementById('endereco').value = '';
-            document.getElementById('distancia').value = '';
-            carregarDadosGerais();
-        } else {
-            alert(json.erro);
-        }
-    }
-
-    async function marcarProdutoPronto(id) {
-        const res = await fetch(`${API_URL}/pedidos/${id}/produto-pronto`, { method: 'POST' });
-        const json = await res.json();
-        if (res.ok) {
-            alert("Aviso enviado ao motoboy!");
-            carregarDadosGerais();
-        } else {
-            alert(json.erro);
+            if (motoboys.length === 0) {
+                html = '<tr><td colspan="5" style="text-align:center; color:#777;">Nenhum motoboy cadastrado.</td></tr>';
+            } else {
+                motoboys.forEach(m => {
+                    const statusConexao = m.online ? '<span style="color:#4CAF50; font-weight:bold;">🟢 Online</span>' : '<span style="color:#777;">🔴 Offline</span>';
+                    const statusConta = m.ativo ? '<span style="color:#4CAF50;">Ativo</span>' : '<span style="color:#f44336; font-weight:bold;">Bloqueado</span>';
+                    
+                    html += `
+                        <tr>
+                            <td>${m.nome}</td>
+                            <td>${m.usuario}</td>
+                            <td>${statusConexao}</td>
+                            <td>${statusConta}</td>
+                            <td>
+                                ${m.ativo ? 
+                                    `<button class="btn-bloquear" onclick="alterarStatusMotoboy(${m.id}, false)">Bloquear (5 min)</button>` : 
+                                    `<button class="btn-desbloquear" onclick="alterarStatusMotoboy(${m.id}, true)">Desbloquear</button>`
+                                }
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            document.getElementById('tabela-motoboys').innerHTML = html;
+        } catch (e) {
+            console.log("Erro ao carregar motoboys", e);
         }
     }
 
-    async function alterarStatusMotoboy(id, ativar) {
+    async function alterarStatusMotoboy(id, ativo) {
         const res = await fetch(`${API_URL}/admin/motoboys/${id}/status`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ativo: ativar })
+            body: JSON.stringify({ ativo })
         });
         if (res.ok) {
             carregarMotoboys();
@@ -251,102 +115,79 @@
         }
     }
 
-    async function carregarMotoboys() {
-        try {
-            const res = await fetch(`${API_URL}/admin/motoboys`);
-            const motoboys = await res.json();
+    async function cadastrarPedido() {
+        const cliente = document.getElementById('cliente').value;
+        const enderecoEntrega = document.getElementById('enderecoEntrega').value;
+        const distanciaKm = document.getElementById('distanciaKm').value;
 
-            let html = '';
-            if (motoboys.length === 0) {
-                html = '<p style="color:#777; text-align:center;">Nenhum motoboy cadastrado.</p>';
-            } else {
-                motoboys.forEach(m => {
-                    let dotClass = m.online ? 'status-dot online' : 'status-dot';
-                    let statusTexto = m.online ? 'Online' : 'Offline';
-                    if (m.rotaAtiva) statusTexto += ' (Em Rota)';
-
-                    html += `
-                        <div class="motoboy-item">
-                            <div>
-                                <p><span class="${dotClass}" title="${statusTexto}"></span><strong>${m.nome}</strong></p>
-                                <p style="font-size: 0.8rem; color: #aaa;">Usuário: ${m.usuario}</p>
-                                <p style="font-size: 0.75rem; color: ${m.ativo ? '#4CAF50' : '#ff5252'}">${m.ativo ? 'Conta Ativa' : 'Bloqueado'}</p>
-                            </div>
-                            <div>
-                                ${m.ativo ? 
-                                    `<button style="background:#ff5252; padding:6px 10px; font-size:0.8rem; width:auto;" onclick="alterarStatusMotoboy(${m.id}, false)">Bloquear</button>` : 
-                                    `<button style="background:#4CAF50; padding:6px 10px; font-size:0.8rem; width:auto;" onclick="alterarStatusMotoboy(${m.id}, true)">Ativar</button>`
-                                }
-                            </div>
-                        </div>
-                    `;
-                });
-            }
-            document.getElementById('lista-motoboys').innerHTML = html;
-        } catch (e) {
-            console.log("Erro ao carregar motoboys", e);
+        const res = await fetch(`${API_URL}/pedidos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cliente, enderecoEntrega, distanciaKm })
+        });
+        const json = await res.json();
+        if (res.ok) {
+            alert("Pedido lançado com sucesso!");
+            document.getElementById('cliente').value = '';
+            document.getElementById('enderecoEntrega').value = '';
+            document.getElementById('distanciaKm').value = '';
+            carregarPedidos();
+        } else {
+            alert(json.erro);
         }
     }
 
     async function carregarPedidos() {
-        const elementoAtivo = document.activeElement;
-        if (elementoAtivo && (elementoAtivo.tagName === 'INPUT' || elementoAtivo.tagName === 'TEXTAREA')) {
-            return;
-        }
+        const res = await fetch(`${API_URL}/restaurante/pedidos`);
+        const pedidos = await res.json();
+        let html = '';
 
-        try {
-            const res = await fetch(`${API_URL}/restaurante/pedidos`);
-            const pedidos = await res.json();
-
-            let html = '';
-            if (pedidos.length === 0) {
-                html = '<p style="color:#777; text-align:center;">Nenhum pedido no momento.</p>';
-            } else {
-                pedidos.slice().reverse().forEach(p => {
-                    let corStatus = '#333'; 
-                    let statusLower = (p.status || '').toLowerCase();
-
-                    if (statusLower.includes('entregue')) {
-                        corStatus = '#4CAF50'; 
-                    } else if (statusLower.includes('trânsito') || statusLower.includes('coleta') || statusLower.includes('aguardando') || statusLower.includes('pronto')) {
-                        corStatus = '#FF9800'; 
-                    } else if (statusLower.includes('cancelado') || statusLower.includes('recusado')) {
-                        corStatus = '#f44336'; 
-                    }
-
-                    html += `
-                        <div class="pedido-item">
-                            <p><strong>Pedido #${p.id}</strong> - ${p.cliente}</p>
-                            <p>📍 <strong>Endereço de Entrega:</strong> ${p.enderecoEntrega}</p>
-                            <p>Status: <span class="status-badge" style="background-color: ${corStatus};">${p.status}</span></p>
-                            <p>🛵 Motoboy: ${p.motoboyNome || 'Aguardando aceitar'}</p>
-                            <p>🔑 Código de Coleta: <span class="codigo-destaque">${p.codigoColetaParaValidar || '---'}</span></p>
-                            <p>🔒 Código do Cliente: <span class="codigo-destaque" style="color: #4CAF50;">${p.codigoEntregaParaValidar || '---'}</span></p>
-                            
-                            ${p.status === 'Motoboy Chegou no Restaurante' ? `
-                                <button class="btn-pronto" onclick="marcarProdutoPronto(${p.id})">📦 Produto Pronto</button>
-                            ` : ''}
+        if (pedidos.length === 0) {
+            html = '<p style="color:#777; text-align:center;">Nenhum pedido no momento.</p>';
+        } else {
+            pedidos.forEach(p => {
+                html += `
+                    <div class="card">
+                        <p><strong>Pedido #${p.id}</strong> - Cliente: <strong style="color:#ffcc00;">${p.cliente}</strong></p>
+                        <p>📍 <strong>Entrega:</strong> ${p.enderecoEntrega}</p>
+                        <p>🛵 <strong>Motoboy:</strong> ${p.motoboyNome ? p.motoboyNome : '<span style="color:#777;">Aguardando aceite...</span>'}</p>
+                        <p>📌 <strong>Status Atual:</strong> <span style="color:#4CAF50; font-weight:bold;">${p.status}</span></p>
+                        
+                        <div style="background:#222; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                            <p style="margin: 0 0 5px 0; font-size: 0.85rem; color: #aaa;">Códigos de Validação:</p>
+                            <span style="background:#333; padding: 4px 8px; border-radius: 4px; font-size: 0.9rem; margin-right: 10px;">🔑 Coleta: <strong>${p.codigoColetaParaValidar}</strong></span>
+                            <span style="background:#333; padding: 4px 8px; border-radius: 4px; font-size: 0.9rem;">🎯 Entrega: <strong>${p.codigoEntregaParaValidar}</strong></span>
                         </div>
-                    `;
-                });
-            }
 
-            const container = document.getElementById('lista-pedidos');
-            if (container.innerHTML !== html) {
-                container.innerHTML = html;
-            }
-        } catch (e) {
-            console.log("Erro ao carregar pedidos", e);
+                        ${p.status === 'Aguardando Chegada ao Restaurante' || p.status === 'Motoboy Chegou no Restaurante' ? `
+                            <button class="btn-acao" style="margin-top: 10px;" onclick="produtoPronto(${p.id})">✅ Produto Pronto no Balcão</button>
+                        ` : ''}
+                    </div>
+                `;
+            });
+        }
+        document.getElementById('lista-pedidos').innerHTML = html;
+    }
+
+    async function produtoPronto(id) {
+        const res = await fetch(`${API_URL}/pedidos/${id}/produto-pronto`, { method: 'POST' });
+        if (res.ok) {
+            carregarPedidos();
+        } else {
+            alert("Erro ao atualizar status do pedido.");
         }
     }
 
-    function carregarDadosGerais() {
+    function iniciarAtualizacao() {
+        setInterval(() => {
+            carregarMotoboys();
+            carregarPedidos();
+        }, 4000);
         carregarMotoboys();
         carregarPedidos();
     }
 
-    setInterval(carregarDadosGerais, 5000);
-    carregarDadosGerais();
+    iniciarAtualizacao();
 </script>
 
 </body>

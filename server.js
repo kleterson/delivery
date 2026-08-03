@@ -33,7 +33,7 @@ app.get('/', (req, res) => {
     `);
 });
 
-// CADASTRO DE MOTOBOY (Permanente até ordem do Admin)
+// CADASTRO DE MOTOBOY
 app.post('/motoboys/cadastrar', (req, res) => {
     const { nome, usuario, senha } = req.body;
     if (!nome || !usuario || !senha) {
@@ -48,16 +48,17 @@ app.post('/motoboys/cadastrar', (req, res) => {
         nome, 
         usuario, 
         senha, 
-        ativo: true, // Fica permanente até segunda ordem do admin
+        ativo: true, 
         online: false,
         rotaAtiva: false,
-        ultimoPing: null
+        ultimoPing: null,
+        tempoBloqueioAte: 0 // Controle de bloqueio temporário (timestamp)
     };
     motoboysCadastrados.push(novoMotoboy);
     res.status(201).json({ mensagem: "Cadastro realizado com sucesso!", motoboy: { id: novoMotoboy.id, nome: novoMotoboy.nome, usuario: novoMotoboy.usuario } });
 });
 
-// LOGIN DE MOTOBOY (Persistente)
+// LOGIN DE MOTOBOY
 app.post('/motoboys/login', (req, res) => {
     const { usuario, senha } = req.body;
     const motoboy = motoboysCadastrados.find(m => m.usuario === usuario && m.senha === senha);
@@ -72,11 +73,10 @@ app.post('/motoboys/login', (req, res) => {
     res.json({ mensagem: "Login bem-sucedido!", motoboy: { id: motoboy.id, nome: motoboy.nome, usuario: motoboy.usuario } });
 });
 
-// LISTAR MOTOBOYS PARA O ADMIN (Com status online/bolinha verde)
+// LISTAR MOTOBOYS PARA O ADMIN
 app.get('/admin/motoboys', (req, res) => {
     const agora = Date.now();
     motoboysCadastrados.forEach(m => {
-        // Se ficar mais de 30 segundos sem atualizar o ping, considera offline
         if (m.ultimoPing && (agora - m.ultimoPing > 30000)) {
             m.online = false;
         }
@@ -88,26 +88,61 @@ app.get('/admin/motoboys', (req, res) => {
 app.post('/admin/motoboys/:id/status', (req, res) => {
     const id = parseInt(req.params.id);
     const { ativo } = req.body;
-    const motoboy = motoboysCadastrados.find(m => m.id === id);
+    const motoboy = motoboysCadastridos.find(m => m.id === id);
     if (!motoboy) return res.status(404).json({ erro: "Motoboy não encontrado." });
     
     motoboy.ativo = ativo;
+    if (!ativo) {
+        motoboy.online = false;
+        motoboy.rotaAtiva = false;
+        // Aplica 5 minutos de bloqueio temporário (300.000 ms) a partir de agora
+        motoboy.tempoBloqueioAte = Date.now() + 300000;
+    }
     res.json({ mensagem: "Status alterado com sucesso!", motoboy });
 });
 
-// MOTOBOY: Atualizar batimento online / Ping / Rota
-app.post('/motoboys/:id/ping', (req, res) => {
+// MOTOBOY: Atualizar status de conexão (Online / Offline com validação de bloqueio)
+app.post('/motoboys/:id/status-conexao', (req, res) => {
     const id = parseInt(req.params.id);
-    const { rotaAtiva } = req.body;
+    const { online } = req.body;
     const motoboy = motoboysCadastrados.find(m => m.id === id);
     if (!motoboy) return res.status(404).json({ erro: "Motoboy não encontrado." });
 
-    motoboy.online = true;
-    motoboy.ultimoPing = Date.now();
-    if (rotaAtiva !== undefined) {
-        motoboy.rotaAtiva = rotaAtiva;
+    const agora = Date.now();
+
+    // Se o motoboy estiver bloqueado ou dentro do tempo de espera
+    if (!motoboy.ativo || agora < motoboy.tempoBloqueioAte) {
+        motoboy.online = false;
+        const tempoRestante = Math.ceil((motoboy.tempoBloqueioAte - agora) / 1000);
+        return res.status(403).json({ 
+            erro: "Temporariamente bloqueado aguarde .....", 
+            tempoRestante: tempoRestante > 0 ? tempoRestante : 300 
+        });
     }
-    res.json({ mensagem: "Ping atualizado", online: motoboy.online, rotaAtiva: motoboy.rotaAtiva });
+
+    motoboy.online = online;
+    if (online) {
+        motoboy.ultimoPing = agora;
+    }
+    res.json({ mensagem: "Status atualizado", online: motoboy.online });
+});
+
+// MOTOBOY: Ping de localização
+app.post('/motoboys/:id/localizacao', (req, res) => {
+    const id = parseInt(req.params.id);
+    const { online } = req.body;
+    const motoboy = motoboysCadastrados.find(m => m.id === id);
+    if (!motoboy) return res.status(404).json({ erro: "Motoboy não encontrado." });
+
+    const agora = Date.now();
+    if (!motoboy.ativo || agora < motoboy.tempoBloqueioAte) {
+        motoboy.online = false;
+        return res.status(403).json({ erro: "Conta bloqueada ou em período de espera." });
+    }
+
+    motoboy.online = online;
+    motoboy.ultimoPing = agora;
+    res.json({ mensagem: "Localização atualizada" });
 });
 
 app.get('/restaurante/pedidos', (req, res) => {
