@@ -24,7 +24,7 @@
         }
 
         .main-container { 
-            max-width: 1100px; 
+            max-width: 1200px; 
             margin: auto; 
         }
 
@@ -37,12 +37,12 @@
 
         .painel-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 20px;
             align-items: start;
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
             .painel-grid {
                 grid-template-columns: 1fr;
             }
@@ -51,14 +51,14 @@
         .card-secao {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            padding: 25px;
+            padding: 20px;
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.4);
         }
 
         h2 { 
             color: var(--accent-red); 
-            font-size: 1.2rem; 
+            font-size: 1.1rem; 
             margin-top: 0; 
             margin-bottom: 20px; 
             text-align: center;
@@ -109,13 +109,13 @@
             margin-top: 8px;
         }
 
-        .lista-pedidos {
+        .lista-pedidos, .lista-motoboys {
             max-height: 450px;
             overflow-y: auto;
             padding-right: 5px;
         }
 
-        .pedido-item {
+        .pedido-item, .motoboy-item {
             background: #252525;
             border: 1px solid #444;
             padding: 12px 15px;
@@ -124,9 +124,24 @@
             border-left: 5px solid var(--accent-green);
         }
 
-        .pedido-item p {
-            margin: 4px 0;
-            font-size: 0.95rem;
+        .motoboy-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-dot {
+            height: 12px;
+            width: 12px;
+            background-color: #777;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .status-dot.online {
+            background-color: #4CAF50;
+            box-shadow: 0 0 8px #4CAF50;
         }
 
         .codigo-destaque {
@@ -152,7 +167,7 @@
     
     <div class="painel-grid">
         
-        <!-- COLUNA DA ESQUERDA: CRIAR PEDIDO -->
+        <!-- COLUNA 1: CRIAR PEDIDO -->
         <div class="card-secao">
             <h2>Criar Novo Pedido</h2>
             <input type="text" id="cliente" placeholder="Nome do Cliente">
@@ -161,10 +176,18 @@
             <button onclick="criarPedido()">Fazer Pedido</button>
         </div>
 
-        <!-- COLUNA DA DIREITA: PEDIDOS NO BALCÃO -->
+        <!-- COLUNA 2: MOTOBOYS CADASTRADOS (COM BOLINHA VERDE ONLINE) -->
+        <div class="card-secao">
+            <h2>Motoboys & Status</h2>
+            <div id="lista-motoboys" class="lista-motoboys">
+                <p style="text-align: center; color: #777;">Carregando motoboys...</p>
+            </div>
+        </div>
+
+        <!-- COLUNA 3: PEDIDOS NO BALCÃO -->
         <div class="card-secao">
             <h2>Pedidos no Balcão</h2>
-            <button class="btn-atualizar" onclick="carregarPedidos()">Atualizar Coletas</button>
+            <button class="btn-atualizar" onclick="carregarDadosGerais()">Atualizar Tudo</button>
             <div id="lista-pedidos" class="lista-pedidos">
                 <p style="text-align: center; color: #777;">Carregando pedidos...</p>
             </div>
@@ -198,22 +221,70 @@
             document.getElementById('cliente').value = '';
             document.getElementById('endereco').value = '';
             document.getElementById('distancia').value = '';
-            carregarPedidos();
+            carregarDadosGerais();
         } else {
             alert(json.erro);
         }
     }
 
     async function marcarProdutoPronto(id) {
-        const res = await fetch(`${API_URL}/pedidos/${id}/produto-pronto`, {
-            method: 'POST'
-        });
+        const res = await fetch(`${API_URL}/pedidos/${id}/produto-pronto`, { method: 'POST' });
         const json = await res.json();
         if (res.ok) {
             alert("Aviso enviado ao motoboy!");
-            carregarPedidos();
+            carregarDadosGerais();
         } else {
             alert(json.erro);
+        }
+    }
+
+    async function alterarStatusMotoboy(id, ativar) {
+        const res = await fetch(`${API_URL}/admin/motoboys/${id}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ativo: ativar })
+        });
+        if (res.ok) {
+            carregarMotoboys();
+        } else {
+            alert("Erro ao alterar status do motoboy.");
+        }
+    }
+
+    async function carregarMotoboys() {
+        try {
+            const res = await fetch(`${API_URL}/admin/motoboys`);
+            const motoboys = await res.json();
+
+            let html = '';
+            if (motoboys.length === 0) {
+                html = '<p style="color:#777; text-align:center;">Nenhum motoboy cadastrado.</p>';
+            } else {
+                motoboys.forEach(m => {
+                    let dotClass = m.online ? 'status-dot online' : 'status-dot';
+                    let statusTexto = m.online ? 'Online' : 'Offline';
+                    if (m.rotaAtiva) statusTexto += ' (Em Rota)';
+
+                    html += `
+                        <div class="motoboy-item">
+                            <div>
+                                <p><span class="${dotClass}" title="${statusTexto}"></span><strong>${m.nome}</strong></p>
+                                <p style="font-size: 0.8rem; color: #aaa;">Usuário: ${m.usuario}</p>
+                                <p style="font-size: 0.75rem; color: ${m.ativo ? '#4CAF50' : '#ff5252'}">${m.ativo ? 'Conta Ativa' : 'Bloqueado'}</p>
+                            </div>
+                            <div>
+                                ${m.ativo ? 
+                                    `<button style="background:#ff5252; padding:6px 10px; font-size:0.8rem; width:auto;" onclick="alterarStatusMotoboy(${m.id}, false)">Bloquear</button>` : 
+                                    `<button style="background:#4CAF50; padding:6px 10px; font-size:0.8rem; width:auto;" onclick="alterarStatusMotoboy(${m.id}, true)">Ativar</button>`
+                                }
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            document.getElementById('lista-motoboys').innerHTML = html;
+        } catch (e) {
+            console.log("Erro ao carregar motoboys", e);
         }
     }
 
@@ -232,16 +303,15 @@
                 html = '<p style="color:#777; text-align:center;">Nenhum pedido no momento.</p>';
             } else {
                 pedidos.slice().reverse().forEach(p => {
-                    // Lógica de cores do status
-                    let corStatus = '#333'; // Padrão cinza
+                    let corStatus = '#333'; 
                     let statusLower = (p.status || '').toLowerCase();
 
                     if (statusLower.includes('entregue')) {
-                        corStatus = '#4CAF50'; // Verde
+                        corStatus = '#4CAF50'; 
                     } else if (statusLower.includes('trânsito') || statusLower.includes('coleta') || statusLower.includes('aguardando') || statusLower.includes('pronto')) {
-                        corStatus = '#FF9800'; // Amarelo/Laranja
+                        corStatus = '#FF9800'; 
                     } else if (statusLower.includes('cancelado') || statusLower.includes('recusado')) {
-                        corStatus = '#f44336'; // Vermelho
+                        corStatus = '#f44336'; 
                     }
 
                     html += `
@@ -270,8 +340,13 @@
         }
     }
 
-    setInterval(carregarPedidos, 5000);
-    carregarPedidos();
+    function carregarDadosGerais() {
+        carregarMotoboys();
+        carregarPedidos();
+    }
+
+    setInterval(carregarDadosGerais, 5000);
+    carregarDadosGerais();
 </script>
 
 </body>

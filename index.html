@@ -3,15 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App do Motoboy - Login</title>
+    <title>App do Motoboy</title>
+    <!-- Leaflet CSS para o Mapa -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 15px; }
         .container { max-width: 480px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
         h1, h2 { color: #ff5252; text-align: center; font-size: 1.4rem; }
         
-        .painel-saldo { background: #252525; border: 2px solid #4CAF50; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
+        .painel-saldo { background: #252525; border: 2px solid #4CAF50; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px; }
         .painel-saldo h3 { margin: 0; color: #aaa; font-size: 0.9rem; text-transform: uppercase; }
         .painel-saldo p { margin: 5px 0 0 0; color: #4CAF50; font-size: 1.8rem; font-weight: bold; }
+
+        /* Botão de Status Online/Offline */
+        .painel-status-conexao {
+            margin-bottom: 15px;
+        }
+        .btn-status-toggle {
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .status-on { background-color: #4CAF50; color: white; box-shadow: 0 0 10px rgba(76,175,80,0.4); }
+        .status-off { background-color: #f44336; color: white; box-shadow: 0 0 10px rgba(244,67,54,0.4); }
+
+        /* Estilo do Mapa */
+        #mapa-container {
+            width: 100%;
+            height: 220px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #444;
+            display: none; /* Só aparece quando logado */
+        }
 
         .card { background: #2d2d2d; border: 1px solid #444; padding: 15px; margin-bottom: 12px; border-radius: 8px; }
         .card-alerta { border: 2px solid #ff5252; background: #2c1a1a; animation: piscar 0.8s infinite alternate; }
@@ -29,11 +58,11 @@
         .btn-aceitar { background-color: #2196F3; }
         .btn-rota { background-color: #00bcd4; color: white; text-align: center; text-decoration: none; display: block; padding: 12px; border-radius: 6px; font-weight: bold; margin: 6px 0; }
         .btn-chegada { background-color: #ff9800; }
-        .btn-historico { background-color: #607D8B; margin-top: 20px; }
+        .btn-historico { background-color: #607D8B; margin-top: 10px; }
         .btn-sair { background-color: #d32f2f; margin-top: 10px; }
         .badge { background: #ff5252; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; }
         
-        #modal-historico { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
+        #modal-historico { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; z-index: 9999; }
         .modal-conteudo { background: #1e1e1e; width: 100%; max-width: 450px; max-height: 80vh; overflow-y: auto; padding: 20px; border-radius: 10px; border: 1px solid #555; }
         .auth-box { display: none; }
     </style>
@@ -65,7 +94,15 @@
 
     <!-- TELA PRINCIPAL DO APLICATIVO -->
     <div id="tela-app" style="display: none;">
-        <p id="saudacao-motoboy" style="text-align: center; color: #4CAF50; font-weight: bold;"></p>
+        <p id="saudacao-motoboy" style="text-align: center; color: #4CAF50; font-weight: bold; margin-bottom: 10px;"></p>
+
+        <!-- BOTÃO DE CONTROLE DE ROTA (ONLINE / OFFLINE) -->
+        <div class="painel-status-conexao">
+            <button id="btn-toggle-status" class="btn-status-toggle status-off" onclick="alternarStatusOnline()">🔴 OFFLINE (Toque para Conectar)</button>
+        </div>
+
+        <!-- MAPA EM TEMPO REAL -->
+        <div id="mapa-container"></div>
 
         <div class="painel-saldo">
             <h3>Seu Saldo Acumulado</h3>
@@ -76,7 +113,7 @@
             🔔 Toque aqui para habilitar o Alarme e Notificações
         </div>
 
-        <div id="motoboy-painel">Procurando entregas...</div>
+        <div id="motoboy-painel">Conecte-se para procurar entregas...</div>
 
         <button class="btn-historico" onclick="abrirHistorico()">Ver Entregas Realizadas</button>
         <button class="btn-sair" onclick="fazerLogout()">Sair da Conta</button>
@@ -91,6 +128,9 @@
     </div>
 </div>
 
+<!-- Leaflet JS para o Mapa -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
     const API_URL = window.location.origin;
     let audioInterval = null;
@@ -98,16 +138,121 @@
     let ultimoPedidoNotificado = null;
     let ultimoPedidoProntoNotificado = null;
     let motoboyLogado = JSON.parse(localStorage.getItem('motoboy_logado')) || null;
+    let estaOnline = false;
+    let watchId = null;
+    let map = null;
+    let markerMotoboy = null;
 
     function verificarSessao() {
         if (motoboyLogado) {
             document.getElementById('tela-auth').style.display = 'none';
             document.getElementById('tela-app').style.display = 'block';
             document.getElementById('saudacao-motoboy').innerText = `Olá, ${motoboyLogado.nome} 🛵`;
+            document.getElementById('mapa-container').style.display = 'block';
+            
+            inicializarMapa();
             iniciarLoopApp();
         } else {
             document.getElementById('tela-auth').style.display = 'block';
             document.getElementById('tela-app').style.display = 'none';
+        }
+    }
+
+    function inicializarMapa() {
+        if (map) return;
+        // Inicializa o mapa centrado provisoriamente no Brasil
+        map = L.map('mapa-container').setView([-15.7801, -47.9292], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        setTimeout(() => { map.invalidateSize(); }, 300);
+    }
+
+    function atualizarPosicaoNoMapa(lat, lon) {
+        if (!map) return;
+        const coords = [lat, lon];
+        if (!markerMotoboy) {
+            // Cria ícone personalizado da motinha
+            const iconeMoto = L.divIcon({
+                html: '🛵',
+                className: 'custom-motoboy-icon',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+            markerMotoboy = L.marker(coords, { icon: iconeMoto }).addTo(map);
+        } else {
+            markerMotoboy.setLatLng(coords);
+        }
+        map.setView(coords, 16);
+    }
+
+    function alternarStatusOnline() {
+        estaOnline = !estaOnline;
+        const btn = document.getElementById('btn-toggle-status');
+        
+        if (estaOnline) {
+            btn.className = "btn-status-toggle status-on";
+            btn.innerHTML = "🟢 ONLINE (Pronto para entregas)";
+            iniciarGeolocalizacao();
+        } else {
+            btn.className = "btn-status-toggle status-off";
+            btn.innerHTML = "🔴 OFFLINE (Toque para Conectar)";
+            pararGeolocalizacao();
+            pararAlarmeSonoro();
+            document.getElementById('motoboy-painel').innerHTML = "<p style='color:#777; text-align:center;'>Você está offline.</p>";
+        }
+        notificarStatusServidor();
+    }
+
+    function iniciarGeolocalizacao() {
+        if (navigator.geolocation) {
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    atualizarPosicaoNoMapa(lat, lon);
+                    enviarCoordenadasServidor(lat, lon);
+                },
+                (error) => { console.log("Erro GPS:", error); },
+                { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
+            );
+        } else {
+            alert("Geolocalização não é suportada pelo seu navegador.");
+        }
+    }
+
+    function pararGeolocalizacao() {
+        if (watchId !== null && navigator.geolocation) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+    }
+
+    async function enviarCoordenadasServidor(lat, lon) {
+        if (!motoboyLogado) return;
+        try {
+            await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/localizacao`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lat, lon, online: estaOnline })
+            });
+        } catch (e) {
+            console.log("Erro ao enviar coordenadas", e);
+        }
+    }
+
+    async function notificarStatusServidor() {
+        if (!motoboyLogado) return;
+        try {
+            await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/status-conexao`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ online: estaOnline })
+            });
+        } catch (e) {
+            console.log("Erro ao atualizar status no servidor", e);
         }
     }
 
@@ -160,6 +305,9 @@
     }
 
     function fazerLogout() {
+        estaOnline = false;
+        notificarStatusServidor();
+        pararGeolocalizacao();
         localStorage.removeItem('motoboy_logado');
         motoboyLogado = null;
         pararAlarmeSonoro();
@@ -260,7 +408,7 @@
                 saldoAcumulado += p.financeiro.taxaEntrega;
             }
 
-            if (p.status === 'Disponível') {
+            if (p.status === 'Disponível' && estaOnline) {
                 temPedidoDisponivel = true;
                 idPedidoAtual = p.id;
                 clienteAtual = p.cliente;
@@ -286,12 +434,11 @@
                     statusTexto = "AGUARDANDO O PRODUTO FICAR PRONTO";
                 } else if (p.status === 'Produto Pronto para Coleta') {
                     statusTexto = "📦 PRODUTO PRONTO NO BALCÃO!";
-                    cardClass = "card card-pronto"; // Fica verde e piscando
+                    cardClass = "card card-pronto";
 
-                    // Dispara toque sonoro exclusivo de produto pronto uma única vez por pedido
                     if (ultimoPedidoProntoNotificado !== p.id) {
                         ultimoPedidoProntoNotificado = p.id;
-                        tocarAlarmeAgitado(800); // Som diferente
+                        tocarAlarmeAgitado(800);
                         dispararNotificacaoNativa("🟢 Pedido Pronto!", `O pedido #${p.id} de ${p.cliente} já está pronto para coleta!`);
                     }
                 }
@@ -339,11 +486,15 @@
 
         document.getElementById('saldo-total').innerText = `R$ ${saldoAcumulado.toFixed(2)}`;
 
-        if (temPedidoDisponivel) {
+        if (temPedidoDisponivel && estaOnline) {
             iniciarAlarmeSonoro(clienteAtual, ganhoAtual, idPedidoAtual);
         } else {
             pararAlarmeSonoro();
-            if (!htmlMotoboy) htmlMotoboy = "<p style='color:#777; text-align:center;'>Nenhuma entrega ativa no momento.</p>";
+            if (!htmlMotoboy) {
+                htmlMotoboy = estaOnline ? 
+                    "<p style='color:#777; text-align:center;'>Procurando novas entregas próximas...</p>" : 
+                    "<p style='color:#777; text-align:center;'>Você está offline. Fique online para receber pedidos.</p>";
+            }
         }
 
         document.getElementById('motoboy-painel').innerHTML = htmlMotoboy;
@@ -362,9 +513,7 @@
     }
 
     async function notificarChegada(id) {
-        const res = await fetch(`${API_URL}/pedidos/${id}/chegou-restaurante`, {
-            method: 'POST'
-        });
+        const res = await fetch(`${API_URL}/pedidos/${id}/chegou-restaurante`, { method: 'POST' });
         const json = await res.json();
         if (res.ok) {
             alert("Chegada notificada ao restaurante com sucesso!");

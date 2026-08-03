@@ -33,7 +33,7 @@ app.get('/', (req, res) => {
     `);
 });
 
-// CADASTRO DE MOTOBOY
+// CADASTRO DE MOTOBOY (Permanente até ordem do Admin)
 app.post('/motoboys/cadastrar', (req, res) => {
     const { nome, usuario, senha } = req.body;
     if (!nome || !usuario || !senha) {
@@ -43,26 +43,78 @@ app.post('/motoboys/cadastrar', (req, res) => {
     if (existe) {
         return res.status(400).json({ erro: "Este nome de usuário já está em uso." });
     }
-    const novoMotoboy = { id: motoboysCadastrados.length + 1, nome, usuario, senha };
+    const novoMotoboy = { 
+        id: motoboysCadastrados.length + 1, 
+        nome, 
+        usuario, 
+        senha, 
+        ativo: true, // Fica permanente até segunda ordem do admin
+        online: false,
+        rotaAtiva: false,
+        ultimoPing: null
+    };
     motoboysCadastrados.push(novoMotoboy);
     res.status(201).json({ mensagem: "Cadastro realizado com sucesso!", motoboy: { id: novoMotoboy.id, nome: novoMotoboy.nome, usuario: novoMotoboy.usuario } });
 });
 
-// LOGIN DE MOTOBOY
+// LOGIN DE MOTOBOY (Persistente)
 app.post('/motoboys/login', (req, res) => {
     const { usuario, senha } = req.body;
     const motoboy = motoboysCadastrados.find(m => m.usuario === usuario && m.senha === senha);
     if (!motoboy) {
         return res.status(400).json({ erro: "Usuário ou senha inválidos." });
     }
+    if (motoboy.ativo === false) {
+        return res.status(403).json({ erro: "Sua conta foi desativada pelo administrador." });
+    }
+    motoboy.online = true;
+    motoboy.ultimoPing = Date.now();
     res.json({ mensagem: "Login bem-sucedido!", motoboy: { id: motoboy.id, nome: motoboy.nome, usuario: motoboy.usuario } });
+});
+
+// LISTAR MOTOBOYS PARA O ADMIN (Com status online/bolinha verde)
+app.get('/admin/motoboys', (req, res) => {
+    const agora = Date.now();
+    motoboysCadastrados.forEach(m => {
+        // Se ficar mais de 30 segundos sem atualizar o ping, considera offline
+        if (m.ultimoPing && (agora - m.ultimoPing > 30000)) {
+            m.online = false;
+        }
+    });
+    res.json(motoboysCadastrados);
+});
+
+// ADMIN: Ativar ou Desativar motoboy
+app.post('/admin/motoboys/:id/status', (req, res) => {
+    const id = parseInt(req.params.id);
+    const { ativo } = req.body;
+    const motoboy = motoboysCadastrados.find(m => m.id === id);
+    if (!motoboy) return res.status(404).json({ erro: "Motoboy não encontrado." });
+    
+    motoboy.ativo = ativo;
+    res.json({ mensagem: "Status alterado com sucesso!", motoboy });
+});
+
+// MOTOBOY: Atualizar batimento online / Ping / Rota
+app.post('/motoboys/:id/ping', (req, res) => {
+    const id = parseInt(req.params.id);
+    const { rotaAtiva } = req.body;
+    const motoboy = motoboysCadastrados.find(m => m.id === id);
+    if (!motoboy) return res.status(404).json({ erro: "Motoboy não encontrado." });
+
+    motoboy.online = true;
+    motoboy.ultimoPing = Date.now();
+    if (rotaAtiva !== undefined) {
+        motoboy.rotaAtiva = rotaAtiva;
+    }
+    res.json({ mensagem: "Ping atualizado", online: motoboy.online, rotaAtiva: motoboy.rotaAtiva });
 });
 
 app.get('/restaurante/pedidos', (req, res) => {
     const pedidosRestaurante = pedidos.map(p => ({
         id: p.id,
         cliente: p.cliente,
-        enderecoEntrega: p.entrega.enderecoCliente, // Endereço incluído para o painel
+        enderecoEntrega: p.entrega.enderecoCliente,
         status: p.status,
         motoboyNome: p.motoboyNome,
         codigoColetaParaValidar: p.codigoColeta,
@@ -112,7 +164,6 @@ app.post('/pedidos/:id/aceitar', (req, res) => {
     res.json({ mensagem: "Entrega aceita com sucesso!", pedido });
 });
 
-// NOVO: Motoboy confirma que chegou no restaurante (Arrastar botão)
 app.post('/pedidos/:id/chegou-restaurante', (req, res) => {
     const pedidoId = parseInt(req.params.id);
     const pedido = pedidos.find(p => p.id === pedidoId);
@@ -122,7 +173,6 @@ app.post('/pedidos/:id/chegou-restaurante', (req, res) => {
     res.json({ mensagem: "Chegada notificada ao restaurante!", pedido });
 });
 
-// NOVO: Restaurante avisa que o produto está pronto
 app.post('/pedidos/:id/produto-pronto', (req, res) => {
     const pedidoId = parseInt(req.params.id);
     const pedido = pedidos.find(p => p.id === pedidoId);
