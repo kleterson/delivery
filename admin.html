@@ -103,8 +103,8 @@
             <div class="secao">
                 <h2>📝 Cadastrar Novo Pedido</h2>
                 <input type="text" id="cliente" placeholder="Nome do Cliente">
-                <input type="text" id="enderecoEntrega" placeholder="Endereço de Entrega (Ex: Rua das Flores, 50)">
-                <input type="number" step="0.1" id="distanciaKm" placeholder="Distância em KM (Ex: 3.5)">
+                <input type="text" id="enderecoEntrega" placeholder="Endereço ou Bairro (Ex: Rua Tenente José dos Santos, 1272 - Catiapoã)">
+                <input type="number" step="0.1" id="distanciaKm" placeholder="Distância em KM (Calculado automático ou digite)">
                 <button onclick="cadastrarPedido()">Lançar Pedido para Entrega</button>
             </div>
 
@@ -141,48 +141,83 @@
 <script>
     const API_URL = window.location.origin;
 
-    // Configuração de localização fixa do restaurante para cálculo automático de KM
+    // Coordenadas base do restaurante (Centro / São Vicente) - pode ajustar se precisar
     const RESTAURANTE_LAT = -23.9665;
     const RESTAURANTE_LON = -46.3845;
-    const CIDADE_PADRAO = "São Vicente, SP, Brasil";
 
-    async function calcularDistanciaAutomatica() {
+    // Tabela local instantânea de bairros e ruas principais de São Vicente (sem bloqueio de internet/CORS)
+    const LOCAIS_SAO_VICENTE = [
+        { palavras: ["centro", "martim afonso", "capitao mor aguiar", "capitao-mor aguiar", "freitas guimaraes", "jacob emerick", "joao ramalho", "messia assu", "prefeito jose monteiro"], lat: -23.9665, lon: -46.3845 },
+        { palavras: ["gonzaguinha", "antonio rodrigues", "embaixador pedro de toledo", "22 de janeiro", "binario"], lat: -23.9718, lon: -46.3812 },
+        { palavras: ["itarare", "ayrton senna", "presidente wilson", "boa vista", "ilporanga", "teleferico"], lat: -23.9695, lon: -46.3688 },
+        { palavras: ["catiapoa", "tenente jose dos santos", "jose tenente dos santos", "padre anchieta", "newton prado", "mascarente de moraes", "mascarenhas de moraes"], lat: -23.9585, lon: -46.3820 },
+        { palavras: ["vila valenca", "valenca", "expedicionarios", "campos sales", "benjamin constant"], lat: -23.9620, lon: -46.3775 },
+        { palavras: ["vila cascatinha", "cascatinha", "saldanha da gama"], lat: -23.9560, lon: -46.3740 },
+        { palavras: ["parque bilar", "bilar", "parque sao vicente", "sao vicente", "tamoios", "guarani"], lat: -23.9590, lon: -46.3935 },
+        { palavras: ["vila margarida", "margarida", "mexico", "polidoro de oliveira", "esplanada dos barreiros", "barreiros"], lat: -23.9640, lon: -46.4050 },
+        { palavras: ["jockey", "jockey club", "hipodromo", "antonio emerich"], lat: -23.9515, lon: -46.3885 },
+        { palavras: ["nautica", "cidade nautica", "tancredo neves", "lourival moreira"], lat: -23.9535, lon: -46.4045 },
+        { palavras: ["vila voturua", "voturua", "tupiniquins"], lat: -23.9505, lon: -46.3735 },
+        { palavras: ["japui", "ponte pensil", "itaquitanduva"], lat: -23.9815, lon: -46.3910 },
+        { palavras: ["parque das bandeiras", "bandeiras", "samarita", "humaita", "quarentenario", "rio branco", "jardim rio branco", "gleba"], lat: -23.9650, lon: -46.4550 }
+    ];
+
+    function normalizarTexto(txt) {
+        return txt.toLowerCase()
+            .normalize("NFD")
+            .replace(/[̀-ͯ]/g, "")
+            .trim();
+    }
+
+    // Fórmula de Haversine + fator de rota urbana (1.35x) para distância real pelas ruas
+    function calcularKmHaversine(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const distanciaReta = R * c;
+        const distanciaRuas = Math.max(1.0, distanciaReta * 1.35);
+        return distanciaRuas.toFixed(1);
+    }
+
+    function calcularDistanciaAutomatica() {
         const enderecoInput = document.getElementById('enderecoEntrega');
         const distanciaInput = document.getElementById('distanciaKm');
-        const endereco = enderecoInput.value.trim();
+        const texto = normalizarTexto(enderecoInput.value);
 
-        if (!endereco) return;
+        if (!texto) return;
 
-        distanciaInput.value = "";
-        distanciaInput.placeholder = "Calculando KM...";
-
-        try {
-            const query = encodeURIComponent(`${endereco}, ${CIDADE_PADRAO}`);
-            const resGeo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
-            const dadosGeo = await resGeo.json();
-
-            if (dadosGeo && dadosGeo.length > 0) {
-                const destLat = dadosGeo[0].lat;
-                const destLon = dadosGeo[0].lon;
-
-                const urlRota = `https://router.project-osrm.org/route/v1/driving/${RESTAURANTE_LON},${RESTAURANTE_LAT};${destLon},${destLat}?overview=false`;
-                const resRota = await fetch(urlRota);
-                const dadosRota = await resRota.json();
-
-                if (dadosRota.routes && dadosRota.routes.length > 0) {
-                    const km = (dadosRota.routes[0].distance / 1000).toFixed(1);
-                    distanciaInput.value = km;
+        // 1. Procura na tabela local instantânea (0ms, funciona sempre)
+        for (const local of LOCAIS_SAO_VICENTE) {
+            for (const palavra of local.palavras) {
+                if (texto.includes(palavra)) {
+                    distanciaInput.value = calcularKmHaversine(RESTAURANTE_LAT, RESTAURANTE_LON, local.lat, local.lon);
+                    return;
                 }
             }
-        } catch (e) {
-            console.log("Erro no cálculo automático de KM:", e);
-        } finally {
-            distanciaInput.placeholder = "Distância em KM (Ex: 3.5)";
+        }
+
+        // 2. Se digitar um CEP (ex: 11320-000 ou 11320000), consulta via BrasilAPI / AwesomeAPI (sem bloqueio CORS)
+        const cepMatch = texto.match(/ (\d{5})-?(\d{3}) /);
+        if (cepMatch) {
+            const cep = cepMatch[1] + cepMatch[2];
+            fetch(`https://cep.awesomeapi.com.br/json/${cep}`)
+                .then(r => r.json())
+                .then(dados => {
+                    if (dados && dados.lat && dados.lng) {
+                        distanciaInput.value = calcularKmHaversine(RESTAURANTE_LAT, RESTAURANTE_LON, parseFloat(dados.lat), parseFloat(dados.lng));
+                    }
+                })
+                .catch(() => {});
         }
     }
 
+    // Calcula em tempo real enquanto digita e também ao sair do campo
+    document.getElementById('enderecoEntrega').addEventListener('input', calcularDistanciaAutomatica);
     document.getElementById('enderecoEntrega').addEventListener('blur', calcularDistanciaAutomatica);
-    document.getElementById('enderecoEntrega').addEventListener('change', calcularDistanciaAutomatica);
 
     function formatarTempo(segundos) {
         const min = Math.floor(segundos / 60);
@@ -260,14 +295,13 @@
         const enderecoEntrega = document.getElementById('enderecoEntrega').value;
         let distanciaKm = document.getElementById('distanciaKm').value;
 
-        // Se ainda não calculou o KM antes de clicar no botão, calcula agora antes de enviar
-        if (!distanciaKm && enderecoEntrega.trim()) {
-            await calcularDistanciaAutomatica();
+        if (!distanciaKm) {
+            calcularDistanciaAutomatica();
             distanciaKm = document.getElementById('distanciaKm').value;
         }
 
         if (!distanciaKm) {
-            alert("Não foi possível calcular o KM automaticamente para este endereço. Digite o KM manualmente ou verifique o nome da rua.");
+            alert("Bairro/rua não reconhecido automaticamente. Inclua o nome do bairro no endereço (ex: Catiapoã, Centro, Itararé, Vila Margarida) ou digite o KM manualmente.");
             return;
         }
 
