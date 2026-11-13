@@ -54,6 +54,10 @@
         .btn-sair { background-color: #d32f2f; margin-top: 10px; }
         .badge { background: #ff5252; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; }
         
+        .acoes-financeiras { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+        .btn-pix { background-color: #009688; font-size: 0.9rem; padding: 10px; }
+        .btn-sacar { background-color: #4CAF50; font-size: 0.9rem; padding: 10px; }
+        .modal-pix-box { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; z-index: 9999; }
         #modal-historico { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; z-index: 9999; }
         .modal-conteudo { background: #1e1e1e; width: 100%; max-width: 450px; max-height: 80vh; overflow-y: auto; padding: 20px; border-radius: 10px; border: 1px solid #555; }
         .auth-box { display: none; }
@@ -99,8 +103,14 @@
         <div id="mapa-container"></div>
 
         <div class="painel-saldo">
-            <h3>Seu Saldo Acumulado</h3>
+            <h3>Seu Saldo Acumulado (Líquido)</h3>
             <p id="saldo-total">R$ 0,00</p>
+            <small id="info-pix-cadastrado" style="color: #aaa; display: block; margin-top: 5px; font-size: 0.8rem;">Nenhuma chave Pix cadastrada</small>
+        </div>
+
+        <div class="acoes-financeiras">
+            <button class="btn-pix" onclick="abrirModalPix()">💳 Cadastrar Pix</button>
+            <button class="btn-sacar" onclick="abrirModalSaque()">💸 Sacar Saldo</button>
         </div>
 
         <div id="aviso-audio" style="background: #2a2a1a; border: 1px solid #ff9800; padding: 12px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-size: 0.9rem; color: #ffcc00; cursor: pointer;" onclick="ativarAppCompleto()">
@@ -122,10 +132,174 @@
     </div>
 </div>
 
+<div id="modal-pix" class="modal-pix-box">
+    <div class="modal-conteudo">
+        <h2>💳 Cadastrar Chave Pix</h2>
+        <p style="font-size: 0.85rem; color: #aaa; margin-top: 0;">Informe os dados do titular da conta para receber seus saques.</p>
+        <input type="text" id="pix-nome" placeholder="Nome Completo do Titular">
+        <input type="text" id="pix-cpf" placeholder="CPF (apenas números ou com pontos)" maxlength="14">
+        <input type="text" id="pix-chave" placeholder="Chave Pix (CPF, E-mail, Celular ou Aleatória)">
+        <button onclick="salvarChavePix()" style="background-color: #009688; margin-top: 10px;">Salvar Dados Pix</button>
+        <button onclick="fecharModalPix()" style="background-color: #555; margin-top: 6px;">Cancelar</button>
+    </div>
+</div>
+
+<div id="modal-saque" class="modal-pix-box">
+    <div class="modal-conteudo">
+        <h2>💸 Solicitar Saque</h2>
+        <div id="resumo-saque" style="background: #252525; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.9rem;"></div>
+        <button onclick="confirmarSaque()" style="background-color: #4CAF50;">Confirmar Saque Agora</button>
+        <button onclick="fecharModalSaque()" style="background-color: #555; margin-top: 6px;">Cancelar</button>
+    </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
     const API_URL = window.location.origin;
+    const TAXA_APP_PERCENTUAL = 0.14; // 14% de taxa do app (Ex: R$ 5,00 -> motoboy recebe R$ 4,30)
+    let saldoDisponivelAtual = 0;
+
+    function calcularLiquidoMotoboy(valorBruto) {
+        const bruto = Number(valorBruto) || 0;
+        return Number((bruto * (1 - TAXA_APP_PERCENTUAL)).toFixed(2));
+    }
+
+    function validarCPF(cpf) {
+        cpf = cpf.replace(/[^\d]+/g, '');
+        if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
+        let soma = 0, resto;
+        for (let i = 1; i <= 9; i++) soma += parseInt(cpf.substring(i - 1, i)) * (11 - i);
+        resto = (soma * 10) % 11;
+        if (resto === 10 || resto === 11) resto = 0;
+        if (resto !== parseInt(cpf.substring(9, 10))) return false;
+        soma = 0;
+        for (let i = 1; i <= 10; i++) soma += parseInt(cpf.substring(i - 1, i)) * (12 - i);
+        resto = (soma * 10) % 11;
+        if (resto === 10 || resto === 11) resto = 0;
+        return resto === parseInt(cpf.substring(10, 11));
+    }
+
+    function obterChaveStoragePix() {
+        return motoboyLogado ? `pix_motoboy_${motoboyLogado.id}` : null;
+    }
+
+    function obterChaveStorageSaques() {
+        return motoboyLogado ? `saques_motoboy_${motoboyLogado.id}` : null;
+    }
+
+    function carregarDadosPixNaTela() {
+        if (!motoboyLogado) return;
+        const dadosPix = JSON.parse(localStorage.getItem(obterChaveStoragePix()) || 'null');
+        const infoEl = document.getElementById('info-pix-cadastrado');
+        if (dadosPix && infoEl) {
+            infoEl.innerHTML = `✅ Pix cadastrado: <strong style="color:#4CAF50;">${dadosPix.chave}</strong>`;
+        }
+    }
+
+    function abrirModalPix() {
+        const dadosPix = JSON.parse(localStorage.getItem(obterChaveStoragePix()) || 'null');
+        if (dadosPix) {
+            document.getElementById('pix-nome').value = dadosPix.nome || '';
+            document.getElementById('pix-cpf').value = dadosPix.cpf || '';
+            document.getElementById('pix-chave').value = dadosPix.chave || '';
+        } else if (motoboyLogado) {
+            document.getElementById('pix-nome').value = motoboyLogado.nome || '';
+        }
+        document.getElementById('modal-pix').style.display = 'flex';
+    }
+
+    function fecharModalPix() {
+        document.getElementById('modal-pix').style.display = 'none';
+    }
+
+    async function salvarChavePix() {
+        const nome = document.getElementById('pix-nome').value.trim();
+        const cpf = document.getElementById('pix-cpf').value.trim();
+        const chave = document.getElementById('pix-chave').value.trim();
+
+        if (!nome || nome.length < 3) {
+            alert("Digite seu nome completo.");
+            return;
+        }
+        if (!validarCPF(cpf)) {
+            alert("CPF inválido! Digite um CPF verdadeiro válido.");
+            return;
+        }
+        if (!chave) {
+            alert("Digite sua chave Pix.");
+            return;
+        }
+
+        const dadosPix = { nome, cpf, chave };
+        localStorage.setItem(obterChaveStoragePix(), JSON.stringify(dadosPix));
+
+        // Tenta sincronizar com o servidor caso exista rota configurada
+        try {
+            await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/pix`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dadosPix)
+            });
+        } catch (e) {}
+
+        carregarDadosPixNaTela();
+        fecharModalPix();
+        alert("Chave Pix salva com sucesso!");
+    }
+
+    function abrirModalSaque() {
+        const dadosPix = JSON.parse(localStorage.getItem(obterChaveStoragePix()) || 'null');
+        if (!dadosPix) {
+            alert("Cadastre sua chave Pix com CPF válido antes de solicitar um saque.");
+            abrirModalPix();
+            return;
+        }
+        if (saldoDisponivelAtual <= 0) {
+            alert("Você não possui saldo disponível para saque no momento.");
+            return;
+        }
+
+        document.getElementById('resumo-saque').innerHTML = `
+            <p style="margin: 4px 0;"><strong>Titular:</strong> ${dadosPix.nome}</p>
+            <p style="margin: 4px 0;"><strong>CPF:</strong> ${dadosPix.cpf}</p>
+            <p style="margin: 4px 0;"><strong>Chave Pix:</strong> ${dadosPix.chave}</p>
+            <p style="margin: 10px 0 0 0; font-size: 1.1rem; color: #4CAF50;"><strong>Valor do Saque:</strong> R$ ${saldoDisponivelAtual.toFixed(2)}</p>
+        `;
+        document.getElementById('modal-saque').style.display = 'flex';
+    }
+
+    function fecharModalSaque() {
+        document.getElementById('modal-saque').style.display = 'none';
+    }
+
+    async function confirmarSaque() {
+        const dadosPix = JSON.parse(localStorage.getItem(obterChaveStoragePix()) || 'null');
+        if (!dadosPix || saldoDisponivelAtual <= 0) return;
+
+        const valorSaque = Number(saldoDisponivelAtual.toFixed(2));
+        const historicoSaques = JSON.parse(localStorage.getItem(obterChaveStorageSaques()) || '[]');
+        historicoSaques.push({
+            id: Date.now(),
+            valor: valorSaque,
+            pix: dadosPix,
+            data: new Date().toLocaleString('pt-BR'),
+            status: 'Solicitado'
+        });
+        localStorage.setItem(obterChaveStorageSaques(), JSON.stringify(historicoSaques));
+
+        try {
+            await fetch(`${API_URL}/motoboys/${motoboyLogado.id}/sacar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ valor: valorSaque, ...dadosPix })
+            });
+        } catch (e) {}
+
+        fecharModalSaque();
+        alert(`Saque de R$ ${valorSaque.toFixed(2)} solicitado com sucesso para a chave Pix: ${dadosPix.chave}`);
+        atualizarPainelMotoboy();
+    }
     let audioInterval = null;
     let audioCtx = null;
     let ultimoPedidoNotificado = null;
@@ -176,6 +350,7 @@
             document.getElementById('saudacao-motoboy').innerText = `Olá, ${motoboyLogado.nome} 🛵`;
             document.getElementById('mapa-container').style.display = 'block';
             
+            carregarDadosPixNaTela();
             inicializarMapa();
             iniciarLoopApp();
         } else {
@@ -454,14 +629,14 @@
 
         pedidos.forEach(p => {
             if (p.status === 'Entregue' && p.motoboyId === motoboyLogado.id) {
-                saldoAcumulado += p.financeiro.taxaEntrega;
+                saldoAcumulado += calcularLiquidoMotoboy(p.financeiro.taxaEntrega);
             }
 
             if (p.status === 'Disponível' && estaOnline) {
                 temPedidoDisponivel = true;
                 idPedidoAtual = p.id;
                 clienteAtual = p.cliente;
-                ganhoAtual = p.financeiro.taxaEntrega;
+                ganhoAtual = calcularLiquidoMotoboy(p.financeiro.taxaEntrega).toFixed(2);
 
                 htmlMotoboy += `
                     <div class="card card-alerta">
@@ -469,7 +644,7 @@
                         <p><strong>Cliente:</strong> ${p.cliente}</p>
                         <p><strong>Endereço de Entrega:</strong> <span style="color:#ffcc00;">${p.entrega.enderecoCliente}</span></p>
                         <p><strong>Distância:</strong> ${p.entrega.distanciaKm} km</p>
-                        <p><strong>Ganho:</strong> <span style="color:#4CAF50; font-weight:bold; font-size: 1.2rem;">R$ ${p.financeiro.taxaEntrega.toFixed(2)}</span></p>
+                        <p><strong>Seu Ganho Líquido:</strong> <span style="color:#4CAF50; font-weight:bold; font-size: 1.2rem;">R$ ${calcularLiquidoMotoboy(p.financeiro.taxaEntrega).toFixed(2)}</span> <small style="color:#888;">(Bruto R$ ${p.financeiro.taxaEntrega.toFixed(2)} - 14% taxa app)</small></p>
                         <button class="btn-aceitar" onclick="aceitarPedido(${p.id})">ACEITAR ENTREGA</button>
                         <button class="btn-recusar" onclick="recusarPedido(${p.id})">RECUSAR</button>
                     </div>
@@ -502,7 +677,7 @@
                             🗺️ Abrir Rota para o Restaurante (Google Maps)
                         </a>
 
-                        <p>💰 <strong>Ganho:</strong> <span style="color:#4CAF50;">R$ ${p.financeiro.taxaEntrega.toFixed(2)}</span></p>
+                        <p>💰 <strong>Seu Ganho:</strong> <span style="color:#4CAF50;">R$ ${calcularLiquidoMotoboy(p.financeiro.taxaEntrega).toFixed(2)}</span></p>
                         
                         ${p.status === 'Aguardando Chegada ao Restaurante' ? `
                             <button class="btn-chegada" onclick="notificarChegada(${p.id})">📍 Cheguei no Restaurante</button>
@@ -524,7 +699,7 @@
                             🗺️ Abrir Rota para o Cliente (Google Maps)
                         </a>
 
-                        <p>💰 <strong>Ganho:</strong> <span style="color:#4CAF50; font-weight:bold; font-size: 1.1rem;">R$ ${p.financeiro.taxaEntrega.toFixed(2)}</span></p>
+                        <p>💰 <strong>Seu Ganho:</strong> <span style="color:#4CAF50; font-weight:bold; font-size: 1.1rem;">R$ ${calcularLiquidoMotoboy(p.financeiro.taxaEntrega).toFixed(2)}</span></p>
                         <p style="font-size: 0.85rem; color: #888;">(Peça o código de 4 dígitos diretamente ao cliente)</p>
                         <input type="text" id="codigo-entrega-${p.id}" placeholder="Digite o Código do Cliente">
                         <button onclick="entregarPedido(${p.id})" style="background-color: #8bc34a;">Concluir Entrega</button>
@@ -533,7 +708,11 @@
             }
         });
 
-        document.getElementById('saldo-total').innerText = `R$ ${saldoAcumulado.toFixed(2)}`;
+        const saquesRealizados = JSON.parse(localStorage.getItem(obterChaveStorageSaques()) || '[]');
+        const totalSacado = saquesRealizados.reduce((acc, s) => acc + (Number(s.valor) || 0), 0);
+        saldoDisponivelAtual = Math.max(0, saldoAcumulado - totalSacado);
+
+        document.getElementById('saldo-total').innerText = `R$ ${saldoDisponivelAtual.toFixed(2)}`;
 
         if (temPedidoDisponivel && estaOnline) {
             iniciarAlarmeSonoro(clienteAtual, ganhoAtual, idPedidoAtual);
@@ -629,7 +808,7 @@
                     <div style="background:#252525; padding: 10px; margin-bottom: 8px; border-radius: 6px; border-left: 4px solid #4CAF50;">
                         <p style="margin:0 0 5px 0;"><strong>Pedido #${p.id}</strong> - ${p.cliente}</p>
                         <p style="margin:0 0 5px 0; font-size:0.9rem; color:#aaa;">📍 ${p.entrega.enderecoCliente}</p>
-                        <p style="margin:0; color:#4CAF50; font-weight:bold;">Ganho: R$ ${p.financeiro.taxaEntrega.toFixed(2)}</p>
+                        <p style="margin:0; color:#4CAF50; font-weight:bold;">Ganho Líquido: R$ ${calcularLiquidoMotoboy(p.financeiro.taxaEntrega).toFixed(2)} <span style="color:#777; font-weight:normal; font-size:0.8rem;">(Bruto R$ ${p.financeiro.taxaEntrega.toFixed(2)})</span></p>
                     </div>
                 `;
             });
