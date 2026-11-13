@@ -57,6 +57,36 @@ app.post('/motoboys/cadastrar', (req, res) => {
     res.status(201).json({ mensagem: "Cadastro realizado com sucesso!", motoboy: { id: novoMotoboy.id, nome: novoMotoboy.nome, usuario: novoMotoboy.usuario } });
 });
 
+// CADASTRO DE CHAVE PIX DO MOTOBOY
+app.post('/motoboys/:id/pix', (req, res) => {
+    const id = parseInt(req.params.id);
+    const { nome, cpf, chave } = req.body;
+    const motoboy = motoboysCadastrados.find(m => m.id === id);
+    if (!motoboy) return res.status(404).json({ erro: "Motoboy não encontrado." });
+    
+    motoboy.dadosPix = { nome, cpf, chave, atualizadoEm: new Date() };
+    res.json({ mensagem: "Chave Pix salva com sucesso no servidor!", dadosPix: motoboy.dadosPix });
+});
+
+// SOLICITAÇÃO DE SAQUE DO MOTOBOY
+app.post('/motoboys/:id/sacar', (req, res) => {
+    const id = parseInt(req.params.id);
+    const { valor, nome, cpf, chave } = req.body;
+    const motoboy = motoboysCadastrados.find(m => m.id === id);
+    if (!motoboy) return res.status(404).json({ erro: "Motoboy não encontrado." });
+
+    if (!motoboy.saques) motoboy.saques = [];
+    const novoSaque = {
+        id: Date.now(),
+        valor: Number(valor),
+        pix: { nome, cpf, chave },
+        data: new Date(),
+        status: "Solicitado"
+    };
+    motoboy.saques.push(novoSaque);
+    res.status(201).json({ mensagem: "Saque solicitado com sucesso!", saque: novoSaque });
+});
+
 // LOGIN DE MOTOBOY
 app.post('/motoboys/login', (req, res) => {
     const { usuario, senha } = req.body;
